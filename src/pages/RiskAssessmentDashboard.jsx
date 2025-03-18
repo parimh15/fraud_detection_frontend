@@ -14,8 +14,8 @@ const RiskAssessmentDashboard = () => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    const userId = '704c10fe-f318-407e-9aad-57fab900dc9a';
-
+    //const userId = '704c10fe-f318-407e-9aad-57fab900dc9a';
+    const userId='0f8aad1f-e421-412f-bf53-7ffa4cb4d34c';
     const generateInsightSummary = (insight, type) => {
     if (type === 'document') {
         let summary = "";

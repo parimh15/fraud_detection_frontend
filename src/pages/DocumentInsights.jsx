@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useParams } from 'react-router-dom';
+
 import {
     Card, Row, Col, Typography, Divider, Tag, Progress, Table, Space, Descriptions, Image, Alert, Timeline, Statistic, Spin
 } from 'antd';
@@ -8,18 +10,15 @@ import {
     FileTextOutlined, ScanOutlined, SafetyOutlined, FileImageOutlined, AuditOutlined, CheckOutlined
 } from '@ant-design/icons';
 
-import DocumentPreviewImage from '../assets/adhar12.jpg'; // Keep this, and make sure it exists!
+import DocumentPreviewImage from '../assets/adhar12.jpg';
 
 const { Title, Text, Paragraph } = Typography;
 
 const DocumentInsight = () => {
     const [documentData, setDocumentData] = useState(null);
-    const [loading, setLoading] = useState(true); // Add loading state
-    const [error, setError] = useState(null); // Add error state
-     const { id } = useParams();
-    
-    //const documentId = "67d905e8d80a911191d6ee4a"; // Hardcoded documentId
-
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const { id } = useParams();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -28,6 +27,7 @@ const DocumentInsight = () => {
             try {
                 const result = await axios.get(`http://localhost:8080/documents/result?documentId=${id}`);
                 setDocumentData(result.data);
+                console.log("Fetched DocumentData:", result.data);  // Add this line
             } catch (error) {
                 console.error("Error fetching document data:", error);
                 setError(error);
@@ -37,18 +37,23 @@ const DocumentInsight = () => {
         };
 
         fetchData();
-    }, [documentId]); // Add documentId as a dependency to useEffect
+    }, [id]);
 
-    // Helper functions (Memoized)
-    const getRiskColor = (score) => score <= 0.3 ? 'green' : score <= 0.7 ? 'orange' : 'red';
+    const getRiskColor = (score) => {
+        if (score === null || score === undefined) {
+            return 'default';
+        }
+        return score <= 0.3 ? 'green' : score <= 0.7 ? 'orange' : 'red';
+    };
+
     const getValidationColor = (score) => score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red';
+
     const getMatchStatusIcon = (score) => {
         if (score >= 80) return <CheckCircleOutlined style={{ color: 'green' }} />;
         if (score >= 60) return <ExclamationCircleOutlined style={{ color: 'orange' }} />;
         return <CloseCircleOutlined style={{ color: 'red' }} />;
     };
 
-    //Table Column Configs
     const validationColumns = [
         { title: 'Field', dataIndex: 'field', key: 'field' },
         { title: 'Expected Value', dataIndex: 'expected', key: 'expected' },
@@ -58,7 +63,7 @@ const DocumentInsight = () => {
             render: (score) => (
                 <Space size="small">
                     {getMatchStatusIcon(score)}
-                    <span>{score.toFixed(2)}%</span>
+                    <span>{score ? score.toFixed(2) : 0}%</span>
                 </Space>
             ),
         },
@@ -68,9 +73,18 @@ const DocumentInsight = () => {
         { title: 'Aspect', dataIndex: 'aspect', key: 'aspect' },
         {
             title: 'Score', dataIndex: 'score', key: 'score',
-            render: (score) => (
-                <Progress percent={score * 100} size="small" status={score >= 0.8 ? "success" : score >= 0.6 ? "normal" : "exception"} format={percent => `${percent.toFixed(0)}%`} />
-            ),
+            render: (score) => {
+                const validScore = (typeof score === 'number' && !isNaN(score)) ? score : 0;
+
+                return (
+                    <Progress 
+                        percent={(validScore * 100).toFixed(0)} 
+                        size="small" 
+                        status={validScore >= 0.8 ? "success" : validScore >= 0.6 ? "normal" : "exception"} 
+                        format={percent => `${percent}%`} 
+                    />
+                );
+            },
         },
         { title: 'Insight', dataIndex: 'insight', key: 'insight' },
         { title: 'Recommendation', dataIndex: 'recommendation', key: 'recommendation' },
@@ -80,54 +94,87 @@ const DocumentInsight = () => {
         { title: 'Aspect', dataIndex: 'aspect', key: 'aspect' },
         {
             title: 'Risk Score', dataIndex: 'score', key: 'score',
-            render: (score) => (
-                <Progress percent={score * 100} size="small" strokeColor={getRiskColor(score)} format={percent => `${percent.toFixed(0)}%`} />
-            ),
+            render: (score) => {
+                const validScore = (typeof score === 'number' && !isNaN(score)) ? score : 0;
+
+                return (
+                    <Progress 
+                        percent={(validScore * 100).toFixed(0)} 
+                        size="small" 
+                        strokeColor={getRiskColor(validScore)} 
+                        format={percent => `${percent}%`} 
+                    />
+                );
+            },
         },
-        {
-            title: 'Risk Level', dataIndex: 'riskLevel', key: 'riskLevel' },
+        { title: 'Risk Level', dataIndex: 'riskLevel', key: 'riskLevel' },
         { title: 'Detailed Insight', dataIndex: 'insight', key: 'insight' },
     ];
 
-    // Data Transformation Functions
-    const prepareValidationData = () => documentData && documentData.validationResults && documentData.validationResults.validation_results ? Object.entries(documentData.validationResults.validation_results)
-        .map(([field, data], index) => ({
-            key: index,
-            field: field.replace(/_/g, ' ').toUpperCase(),
-            expected: data.expected,
-            extracted: data.extracted,
-            match_score: data.match_score,
-        })) : [];
+    const prepareValidationData = () => {
+        try {
+            if (documentData?.validationResults?.output) {
+                const parsedOutput = JSON.parse(documentData.validationResults.output);
+                return Object.entries(parsedOutput?.validation_results || {}).map(([field, data], index) => ({
+                    key: index,
+                    field: field.replace(/_/g, ' ').toUpperCase(),
+                    expected: data?.expected,
+                    extracted: data?.extracted,
+                    match_score: data?.match_score,
+                }));
+            }
+            return [];
+        } catch (error) {
+            console.error("Error parsing validationResults.output:", error);
+            return [];
+        }
+    };
 
-    const prepareQualityData = () => documentData && documentData.qualityResults && documentData.qualityResults.qualityAnalysis ? Object.entries(documentData.qualityResults.qualityAnalysis)
-        .map(([field, data], index) => {
-            const scoreKey = Object.keys(data).find(key => key.includes('Score'));
-            const score = data[scoreKey];
+    const prepareQualityData = () => {
+        try {
+            if (documentData?.qualityResults?.output) {
+                const parsedOutput = JSON.parse(documentData.qualityResults.output);
+                return Object.entries(parsedOutput?.qualityAnalysis || {}).map(([field, data], index) => {
+                    const scoreKey = Object.keys(data).find((key) => key.includes('Score'));
+                    const score = data?.[scoreKey];
+                    return {
+                        key: index,
+                        aspect: field.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
+                        score: score,
+                        insight: data?.detailedInsight,
+                        recommendation: data?.recommendations || 'None provided',
+                    };
+                });
+            }
+            return [];
+        } catch (error) {
+            console.error("Error parsing qualityResults.output:", error);
+            return [];
+        }
+    };
 
-            return {
-                key: index,
-                aspect: field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-                score: score,
-                insight: data.detailedInsight,
-                recommendation: data.recommendations || 'None provided',
-            };
-        }) : [];
-
-    const prepareForgeryData = () => documentData && documentData.forgeryResults && documentData.forgeryResults.forgeryAnalysis ? Object.entries(documentData.forgeryResults.forgeryAnalysis)
-        .filter(([key]) => key !== 'overallForgeryAssessment')
-        .map(([field, data], index) => {
-            const scoreKey = Object.keys(data).find(key => key.includes('Score'));
-            const score = data[scoreKey];
-
-            return {
-                key: index,
-                aspect: field.replace(/([A-Z])/g, ' $1').replace(/Analysis$/, '').replace(/^./, str => str.toUpperCase()),
-                score: score,
-                riskLevel: score <= 0.3 ? 'Low Risk' : score <= 0.7 ? 'Medium Risk' : 'High Risk',
-                insight: data.detailedInsight,
-            };
-        }) : [];
-
+    const prepareForgeryData = () => {
+        try {
+            if (documentData?.forgeryResults?.output) {
+                const parsedOutput = JSON.parse(documentData.forgeryResults.output);
+                return Object.entries(parsedOutput?.forgeryAnalysis || {}).filter(([key]) => key !== 'overallForgeryAssessment').map(([field, data], index) => {
+                    const scoreKey = Object.keys(data).find((key) => key.includes('Score'));
+                    const score = data?.[scoreKey];
+                    return {
+                        key: index,
+                        aspect: field.replace(/([A-Z])/g, ' $1').replace(/Analysis$/, '').replace(/^./, (str) => str.toUpperCase()),
+                        score: score,
+                        riskLevel: score <= 0.3 ? 'Low Risk' : score <= 0.7 ? 'Medium Risk' : 'High Risk',
+                        insight: data?.detailedInsight,
+                    };
+                });
+            }
+            return [];
+        } catch (error) {
+            console.error("Error parsing forgeryResults.output:", error);
+            return [];
+        }
+    };
 
     if (loading) {
         return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -147,11 +194,30 @@ const DocumentInsight = () => {
     const qualityData = prepareQualityData();
     const forgeryData = prepareForgeryData();
 
-    const riskAssessmentColor = documentData.riskLevel === "LOW" ? "#f6ffed" : documentData.riskLevel === "MEDIUM" ? "#fffbe6" : "#fff2f0";
-    const riskAssessmentTextColor = documentData.riskLevel === "LOW" ? "green" : documentData.riskLevel === "MEDIUM" ? "orange" : "red";
+    // Get safe values for all fields that might be undefined
+    const riskLevel = documentData?.riskLevel || 'LOW';
+    const decision = documentData?.decision || 'UNKNOWN';
+    const nextSteps = documentData?.nextSteps || 'No next steps provided';
+    const remarks = documentData?.remarks || 'No remarks provided';
+    const finalRiskScore = documentData?.finalRiskScore || 0;
+    
+    // Calculate quality score safely
+    const qualityScore = documentData?.qualityResults?.finalQualityScore || 0;
+    const qualityDecision = documentData?.qualityResults?.decision || 'UNKNOWN';
+    
+    // Calculate validation score safely
+    const validationScore = documentData?.validationResults?.overall_validation_score || 0;
+    const validationStatus = documentData?.validationResults?.status || 'UNKNOWN';
+    
+    // Calculate forgery risk safely
+    const forgeryRiskScore = documentData?.forgeryResults?.forgeryAnalysis?.overallForgeryAssessment?.finalForgeryRiskScore || 0;
+    const forgeryDecision = documentData?.forgeryResults?.forgeryAnalysis?.overallForgeryAssessment?.decision || 'UNKNOWN';
 
-    const validationScoreColor = getValidationColor(documentData.validationResults.overall_validation_score);
-    const validationStatusColor = documentData.validationResults.status === "PASS" ? "green" : "red";
+    const riskAssessmentColor = riskLevel === "LOW" ? "#f6ffed" : riskLevel === "MEDIUM" ? "#fffbe6" : "#fff2f0";
+    const riskAssessmentTextColor = riskLevel === "LOW" ? "green" : riskLevel === "MEDIUM" ? "orange" : "red";
+
+    const validationScoreColor = getValidationColor(validationScore);
+    const validationStatusColor = validationStatus === "PASS" ? "green" : "red";
 
     return (
         <div style={{ padding: '12px', fontSize: '13px' }}>
@@ -161,21 +227,22 @@ const DocumentInsight = () => {
                         <Title level={3}><FileTextOutlined /> Document Verification Report</Title>
                         <Descriptions bordered column={2} size="small">
                             <Descriptions.Item label="Document ID" span={2}><Text copyable>{documentData.documentId}</Text></Descriptions.Item>
-                            <Descriptions.Item label="Document Type">{documentData.ocrResults.structured_data.document_type}</Descriptions.Item>
+                            <Descriptions.Item label="Document Type">{documentData?.ocrResults?.structured_data?.document_type || 'Unknown'}</Descriptions.Item>
                             <Descriptions.Item label="Upload Date">March 17, 2025</Descriptions.Item>
                             <Descriptions.Item label="Uploaded By">John Doe</Descriptions.Item>
                             <Descriptions.Item label="Processing Status"><Tag color="green"><CheckOutlined /> Completed</Tag></Descriptions.Item>
                         </Descriptions>
 
                         <Card style={{ marginTop: '8px', backgroundColor: riskAssessmentColor, borderColor: riskAssessmentColor }}>
-                            <Statistic title="Final Risk Assessment" value={documentData.riskLevel} valueStyle={{ color: riskAssessmentTextColor }}
-                                prefix={documentData.riskLevel === "LOW" ? <CheckCircleOutlined /> : documentData.riskLevel === "MEDIUM" ? <ExclamationCircleOutlined /> : <CloseCircleOutlined />} />
+                            <Statistic title="Final Risk Assessment" value={riskLevel} 
+                                valueStyle={{ color: riskAssessmentTextColor }}
+                                prefix={riskLevel === "LOW" ? <CheckCircleOutlined /> : riskLevel === "MEDIUM" ? <ExclamationCircleOutlined /> : <CloseCircleOutlined />} />
                             <Divider style={{ margin: '8px 0' }} />
                             <Row>
-                                <Col span={12}><Statistic title="Decision" value={documentData.decision} valueStyle={{ color: documentData.decision === "APPROVE" ? "green" : "red" }} /></Col>
+                                <Col span={12}><Statistic title="Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red" }} /></Col>
                                 <Col span={12}>
-                                    <Text strong>Next Steps:</Text> <Text>{documentData.nextSteps}</Text><br />
-                                    <Text strong>Remarks:</Text> <Text>{documentData.remarks}</Text>
+                                    <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
+                                    <Text strong>Remarks:</Text> <Text>{remarks}</Text>
                                 </Col>
                             </Row>
                         </Card>
@@ -195,7 +262,7 @@ const DocumentInsight = () => {
             <Card title={<Title level={4}><ScanOutlined /> OCR & Extracted Data</Title>} style={{ marginBottom: '12px' }}>
                 <Alert message="OCR Provider: Gemini Vision Pro API" type="info" showIcon style={{ marginBottom: '8px' }} />
                 <Row gutter={[8, 8]}>
-                    {documentData.ocrResults && documentData.ocrResults.structured_data ? Object.entries(documentData.ocrResults.structured_data)
+                    {documentData?.ocrResults?.structured_data ? Object.entries(documentData.ocrResults.structured_data)
                         .filter(([key]) => key !== 'raw_text')
                         .map(([key, value], index) => (
                             <Col span={8} key={index}>
@@ -210,13 +277,18 @@ const DocumentInsight = () => {
             <Divider style={{ margin: '8px 0' }} />
 
             <Card title={<Title level={4}><SafetyOutlined /> Forgery Check</Title>} style={{ marginBottom: '12px' }}>
-                <Card bordered={false} style={{ backgroundColor: getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore) === 'green' ? '#f6ffed' : getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore) === 'orange' ? '#fffbe6' : '#fff2f0' }}>
+                <Card bordered={false} style={{ backgroundColor: getRiskColor(forgeryRiskScore) === 'green' ? '#f6ffed' : getRiskColor(forgeryRiskScore) === 'orange' ? '#fffbe6' : '#fff2f0' }}>
                     <Row align="middle">
                         <Col span={8}>
-                            <Progress type="dashboard" percent={(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore * 100).toFixed(0)} strokeColor={getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore)} format={percent => `${percent}%`} />
+                            <Progress 
+                                type="dashboard" 
+                                percent={(forgeryRiskScore * 100).toFixed(0)} 
+                                strokeColor={getRiskColor(forgeryRiskScore)} 
+                                format={percent => `${percent}%`} 
+                            />
                         </Col>
                         <Col span={16}>
-                            <Statistic title="Forgery Risk Assessment" value={documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.decision} valueStyle={{ color: getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore) }} />
+                            <Statistic title="Forgery Risk Assessment" value={forgeryDecision} valueStyle={{ color: getRiskColor(forgeryRiskScore) }} />
                             <Paragraph style={{ marginTop: '4px', marginBottom: '4px' }}>The document has been analyzed for potential forgery and tampering. Each aspect of the document has been carefully evaluated to ensure authenticity.</Paragraph>
                         </Col>
                     </Row>
@@ -227,13 +299,18 @@ const DocumentInsight = () => {
             <Divider style={{ margin: '8px 0' }} />
 
             <Card title={<Title level={4}><FileImageOutlined /> Image Quality Analysis</Title>} style={{ marginBottom: '12px' }}>
-                <Card bordered={false} style={{ backgroundColor: documentData.qualityResults.finalQualityScore >= 0.8 ? '#f6ffed' : documentData.qualityResults.finalQualityScore >= 0.6 ? '#fffbe6' : '#fff2f0' }}>
+                <Card bordered={false} style={{ backgroundColor: qualityScore >= 0.8 ? '#f6ffed' : qualityScore >= 0.6 ? '#fffbe6' : '#fff2f0' }}>
                     <Row align="middle">
                         <Col span={8}>
-                            <Progress type="dashboard" percent={(documentData.qualityResults.finalQualityScore * 100).toFixed(0)} status={documentData.qualityResults.finalQualityScore >= 0.8 ? "success" : documentData.qualityResults.finalQualityScore >= 0.6 ? "normal" : "exception"} format={percent => `${percent}%`} />
+                            <Progress 
+                                type="dashboard" 
+                                percent={(qualityScore * 100).toFixed(0)} 
+                                status={qualityScore >= 0.8 ? "success" : qualityScore >= 0.6 ? "normal" : "exception"} 
+                                format={percent => `${percent}%`} 
+                            />
                         </Col>
                         <Col span={16}>
-                            <Statistic title="Image Quality Assessment" value={documentData.qualityResults.decision} valueStyle={{ color: documentData.qualityResults.finalQualityScore >= 0.8 ? "green" : documentData.qualityResults.finalQualityScore >= 0.6 ? "orange" : "red" }} />
+                            <Statistic title="Image Quality Assessment" value={qualityDecision} valueStyle={{ color: qualityScore >= 0.8 ? "green" : qualityScore >= 0.6 ? "orange" : "red" }} />
                             <Paragraph style={{ marginTop: '4px', marginBottom: '4px' }}>This score represents the overall quality of the document image, including factors like readability, clarity, lighting, and completeness.</Paragraph>
                         </Col>
                     </Row>
@@ -247,12 +324,17 @@ const DocumentInsight = () => {
                 <Card bordered={false} style={{ backgroundColor: validationScoreColor === 'green' ? '#f6ffed' : validationScoreColor === 'orange' ? '#fffbe6' : '#fff2f0' }}>
                     <Row align="middle">
                         <Col span={8}>
-                            <Progress type="dashboard" percent={documentData.validationResults.overall_validation_score.toFixed(0)} status={validationScoreColor === 'green' ? "success" : validationScoreColor === 'orange' ? "normal" : "exception"} format={percent => `${percent}%`} />
+                            <Progress 
+                                type="dashboard" 
+                                percent={validationScore.toFixed(0)} 
+                                status={validationScoreColor === 'green' ? "success" : validationScoreColor === 'orange' ? "normal" : "exception"} 
+                                format={percent => `${percent}%`} 
+                            />
                         </Col>
                         <Col span={16}>
-                            <Statistic title="Data Validation Status" value={documentData.validationResults.status} valueStyle={{ color: validationStatusColor }} />
+                            <Statistic title="Data Validation Status" value={validationStatus} valueStyle={{ color: validationStatusColor }} />
                             <Paragraph style={{ marginTop: '4px', marginBottom: '4px' }}>This score represents how well the extracted data matches the expected reference data.
-                                {documentData.validationResults.status === "FAIL" && (
+                                {validationStatus === "FAIL" && (
                                     <Alert message="Validation Failed" description="Some critical fields did not match the expected values. Please review the details below." type="error" showIcon style={{ marginTop: '6px', marginBottom: '4px' }} />
                                 )}
                             </Paragraph>
@@ -268,27 +350,31 @@ const DocumentInsight = () => {
                 <Card bordered={false} style={{ backgroundColor: riskAssessmentColor }}>
                     <Row>
                         <Col span={8} style={{ display: 'flex', justifyContent: 'center' }}>
-                            <Progress type="dashboard" percent={(documentData.finalRiskScore * 100).toFixed(0)} strokeColor={riskAssessmentTextColor}
+                            <Progress 
+                                type="dashboard" 
+                                percent={(finalRiskScore * 100).toFixed(0)} 
+                                strokeColor={riskAssessmentTextColor}
                                 format={() => (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '11px' }}>
                                         <span>Risk</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: riskAssessmentTextColor }}>{documentData.riskLevel}</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: riskAssessmentTextColor }}>{riskLevel}</span>
                                     </div>
-                                )} />
+                                )} 
+                            />
                         </Col>
                         <Col span={16}>
-                            <Statistic title="Final Decision" value={documentData.decision} valueStyle={{ color: documentData.decision === "APPROVE" ? "green" : "red", fontSize: '20px' }} />
+                            <Statistic title="Final Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red", fontSize: '20px' }} />
                             <Divider style={{ margin: '6px 0' }} />
                             <Title level={5} style={{ fontSize: '14px' }}>Summary:</Title>
                             <Timeline style={{ fontSize: '12px' }}>
-                                <Timeline.Item color={validationScoreColor}>Data Validation: {documentData.validationResults.overall_validation_score.toFixed(1)}% ({documentData.validationResults.status})</Timeline.Item>
-                                <Timeline.Item color={getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore)}>Forgery Risk: {(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore * 100).toFixed(0)}% ({documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.decision})</Timeline.Item>
-                                <Timeline.Item color={documentData.qualityResults.finalQualityScore >= 0.8 ? "green" : documentData.qualityResults.finalQualityScore >= 0.6 ? "orange" : "red"}>Image Quality: {(documentData.qualityResults.finalQualityScore * 100).toFixed(0)}% ({documentData.qualityResults.decision})</Timeline.Item>
-                                <Timeline.Item color={riskAssessmentTextColor}><strong>Final Assessment: {documentData.riskLevel} - {documentData.decision}</strong></Timeline.Item>
+                                <Timeline.Item color={validationScoreColor}>Data Validation: {validationScore.toFixed(1)}% ({validationStatus})</Timeline.Item>
+                                <Timeline.Item color={getRiskColor(forgeryRiskScore)}>Forgery Risk: {(forgeryRiskScore * 100).toFixed(0)}% ({forgeryDecision})</Timeline.Item>
+                                <Timeline.Item color={qualityScore >= 0.8 ? "green" : qualityScore >= 0.6 ? "orange" : "red"}>Image Quality: {(qualityScore * 100).toFixed(0)}% ({qualityDecision})</Timeline.Item>
+                                <Timeline.Item color={riskAssessmentTextColor}><strong>Final Assessment: {riskLevel} - {decision}</strong></Timeline.Item>
                             </Timeline>
                             <Divider style={{ margin: '6px 0' }} />
-                            <Text strong>Next Steps:</Text> <Text>{documentData.nextSteps}</Text><br />
-                            <Text strong>Remarks:</Text> <Text>{documentData.remarks}</Text>
+                            <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
+                            <Text strong>Remarks:</Text> <Text>{remarks}</Text>
                         </Col>
                     </Row>
                 </Card>
