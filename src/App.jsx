@@ -1,24 +1,35 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// import Login from "./pages/Login";
-// import Signup from "./pages/Signup";
-// import Home from "./pages/Home";
-// import Insights from "./pages/OverallInsights";
-import DocumentDetails from "./pages/DocumentInsights";
-// import AudioDetails from "./pages/AudioInsights";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import Home from './pages/Home';
+import Upload from './pages/Upload';
+import OverallInsights from './pages/OverallInsights';  
+import DocumentInsight from './pages/DocumentInsights';
+import AudioInsight from './pages/AudioInsights';
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
-        {/* Remove missing pages for now */}
-        {/* <Route path="/" element={<Home />} /> */}
-        {/* <Route path="/login" element={<Login />} /> */}
-        {/* <Route path="/signup" element={<Signup />} /> */}
-        {/* <Route path="/overallinsights" element={<Insights />} /> */}
-        <Route path="/document/:id" element={<DocumentDetails />} />
-        {/* <Route path="/audio/:id" element={<AudioDetails />} /> */}
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+
+        {/* Main layout with correct nested routing */}
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<Home />} />
+          <Route path="upload" element={<Upload />} />
+          <Route path="insights" element={<OverallInsights />} />
+          <Route path="document/:id" element={<DocumentInsight />} />
+          <Route path="audio/:id" element={<AudioInsight />} />
+        </Route>
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 
