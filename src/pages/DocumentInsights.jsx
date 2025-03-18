@@ -1,134 +1,42 @@
-import React from 'react';
-import { Card, Row, Col, Typography, Divider, Tag, Progress, Table, Space, Descriptions, Image, Alert, Timeline, Statistic } from 'antd'; // Import Statistic
-import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, ScanOutlined, SafetyOutlined, FileImageOutlined, AuditOutlined, CheckOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import {
+    Card, Row, Col, Typography, Divider, Tag, Progress, Table, Space, Descriptions, Image, Alert, Timeline, Statistic, Spin
+} from 'antd';
+import {
+    CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined,
+    FileTextOutlined, ScanOutlined, SafetyOutlined, FileImageOutlined, AuditOutlined, CheckOutlined
+} from '@ant-design/icons';
 
-import DocumentPreviewImage from '../assets/adhar12.jpg'; 
+import DocumentPreviewImage from '../assets/adhar3.jpg'; // Keep this, and make sure it exists!
 
 const { Title, Text, Paragraph } = Typography;
 
 const DocumentInsight = () => {
-    const documentData = {
-        "documentId": "ca25789a-06dc-4c3f-9e09-84373d190827",
-        "finalRiskScore": 0.0,
-        "riskLevel": "LOW",
-        "decision": "APPROVE",
-        "nextSteps": "No further action needed",
-        "remarks": "Processing completed successfully",
-        "ocrResults": {
-            "ocr_json_path": "src\\main\\resources\\document_storage\\9cc4ab87-846d-4b06-b71e-3fb39623bc4f_adhar3_ocr.json",
-            "structured_data": {
-                "document_type": "Aadhaar",
-                "name": "Kiran Kumari",
-                "date_of_birth": "2003-01-01",
-                "gender": "Female",
-                "id_number": "4382 5165 5729",
-                "raw_text": "{\n  \"document_type\": \"Aadhaar\",\n  \"name\": \"Kiran Kumari\",\n  \"date_of_birth\": \"2003-01-01\",\n  \"gender\": \"Female\",\n  \"id_number\": \"4382 5165 5729\"\n}"
+    const [documentData, setDocumentData] = useState(null);
+    const [loading, setLoading] = useState(true); // Add loading state
+    const [error, setError] = useState(null); // Add error state
+
+    const documentId = "67d905e8d80a911191d6ee4a"; // Hardcoded documentId
+
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const result = await axios.get(`http://localhost:8080/documents/result?documentId=${documentId}`);
+                setDocumentData(result.data);
+            } catch (error) {
+                console.error("Error fetching document data:", error);
+                setError(error);
+            } finally {
+                setLoading(false);
             }
-        },
-        "qualityResults": {
-            "qualityAnalysis": {
-                "readability": {
-                    "readabilityScore": 0.8,
-                    "detailedInsight": "Text is generally clear and legible, but some characters appear slightly distorted.",
-                    "recommendations": "Use a higher resolution scan to improve character clarity and reduce distortion."
-                },
-                "completeness": {
-                    "completenessScore": 1,
-                    "detailedInsight": "All document sections are fully visible.",
-                    "recommendations": "Ensure full document is captured."
-                },
-                "blur": {
-                    "blurScore": 0.7,
-                    "detailedInsight": "Some areas, especially the edges, exhibit slight blurriness that may affect readability.",
-                    "recommendations": "Capture the image under better lighting conditions to minimize blur."
-                },
-                "lighting": {
-                    "lightingScore": 0.9,
-                    "detailedInsight": "Overall lighting is adequate, but there are some shadows and uneven brightness in the background.",
-                    "recommendations": "Adjust lighting to reduce shadows and create a more uniform brightness level."
-                },
-                "colorAccuracy": {
-                    "colorAccuracyScore": 1,
-                    "detailedInsight": "Colors appear natural and accurately represent the original document.",
-                    "recommendations": "Ensure colors are true to original document."
-                },
-                "alignment": {
-                    "alignmentScore": 0.9,
-                    "detailedInsight": "No alignment insights found.",
-                    "recommendations": "Align document properly before scanning."
-                },
-                "noiseArtifacts": {
-                    "noiseArtifactsScore": 0.8,
-                    "detailedInsight": "There are a few unwanted marks and background noise, but they do not significantly affect readability.",
-                    "recommendations": "Remove or minimize background noise and unwanted marks during image capture or post-processing."
-                }
-            },
-            "finalQualityScore": 0.85,
-            "decision": "Acceptable",
-            "success": true
-        },
-        "forgeryResults": {
-            "forgeryAnalysis": {
-                "tamperingAnalysis": {
-                    "tamperingScore": 0.1,
-                    "detailedInsight": "No signs of image manipulation or suspicious artifacts detected."
-                },
-                "metadataAnalysis": {
-                    "metadataAnomalyScore": 0.2,
-                    "detailedInsight": "Metadata appears consistent and does not indicate document modification."
-                },
-                "formatConsistencyAnalysis": {
-                    "formatConsistencyScore": 0.3,
-                    "detailedInsight": "Font, alignment, and layout are consistent with the standard document structure."
-                },
-                "securityFeatureAnalysis": {
-                    "securityFeatureScore": 0.4,
-                    "detailedInsight": "All security features, including watermarks and holograms, are present and valid."
-                },
-                "backgroundIntegrityAnalysis": {
-                    "backgroundConsistencyScore": 0.5,
-                    "detailedInsight": "No unnatural noise patterns or splicing artifacts detected in the background."
-                },
-                "overallForgeryAssessment": {
-                    "finalForgeryRiskScore": 0.2,
-                    "decision": "Low Risk"
-                }
-            },
-            "success": true
-        },
-        "validationResults": {
-            "validation_results": {
-                "document_type": {
-                    "expected": "Aadhaar",
-                    "extracted": "Aadhaar",
-                    "match_score": 100.0
-                },
-                "name": {
-                    "expected": "Hanumana",
-                    "extracted": "Kiran Kumari",
-                    "match_score": 50.0
-                },
-                "date_of_birth": {
-                    "expected": "1959-01-01",
-                    "extracted": "2003-01-01",
-                    "match_score": 60.0
-                },
-                "gender": {
-                    "expected": "Male",
-                    "extracted": "Female",
-                    "match_score": 80.0
-                },
-                "id_number": {
-                    "expected": "2094 7051 9501",
-                    "extracted": "4382 5165 5729",
-                    "match_score": 42.86
-                }
-            },
-            "overall_validation_score": 66.57,
-            "status": "FAIL"
-        },
-        "valid": true
-    };
+        };
+
+        fetchData();
+    }, [documentId]); // Add documentId as a dependency to useEffect
 
     // Helper functions (Memoized)
     const getRiskColor = (score) => score <= 0.3 ? 'green' : score <= 0.7 ? 'orange' : 'red';
@@ -176,23 +84,21 @@ const DocumentInsight = () => {
             ),
         },
         {
-            title: 'Risk Level', dataIndex: 'riskLevel', key: 'riskLevel',
-            render: (text, record) => (<Tag color={getRiskColor(record.score)}>{text}</Tag>),
-        },
+            title: 'Risk Level', dataIndex: 'riskLevel', key: 'riskLevel' },
         { title: 'Detailed Insight', dataIndex: 'insight', key: 'insight' },
     ];
 
     // Data Transformation Functions
-    const prepareValidationData = () => Object.entries(documentData.validationResults.validation_results)
+    const prepareValidationData = () => documentData && documentData.validationResults && documentData.validationResults.validation_results ? Object.entries(documentData.validationResults.validation_results)
         .map(([field, data], index) => ({
             key: index,
             field: field.replace(/_/g, ' ').toUpperCase(),
             expected: data.expected,
             extracted: data.extracted,
             match_score: data.match_score,
-        }));
+        })) : [];
 
-    const prepareQualityData = () => Object.entries(documentData.qualityResults.qualityAnalysis)
+    const prepareQualityData = () => documentData && documentData.qualityResults && documentData.qualityResults.qualityAnalysis ? Object.entries(documentData.qualityResults.qualityAnalysis)
         .map(([field, data], index) => {
             const scoreKey = Object.keys(data).find(key => key.includes('Score'));
             const score = data[scoreKey];
@@ -204,9 +110,9 @@ const DocumentInsight = () => {
                 insight: data.detailedInsight,
                 recommendation: data.recommendations || 'None provided',
             };
-        });
+        }) : [];
 
-    const prepareForgeryData = () => Object.entries(documentData.forgeryResults.forgeryAnalysis)
+    const prepareForgeryData = () => documentData && documentData.forgeryResults && documentData.forgeryResults.forgeryAnalysis ? Object.entries(documentData.forgeryResults.forgeryAnalysis)
         .filter(([key]) => key !== 'overallForgeryAssessment')
         .map(([field, data], index) => {
             const scoreKey = Object.keys(data).find(key => key.includes('Score'));
@@ -219,7 +125,22 @@ const DocumentInsight = () => {
                 riskLevel: score <= 0.3 ? 'Low Risk' : score <= 0.7 ? 'Medium Risk' : 'High Risk',
                 insight: data.detailedInsight,
             };
-        });
+        }) : [];
+
+
+    if (loading) {
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <Spin size="large" tip="Loading document insights..." />
+        </div>;
+    }
+
+    if (error) {
+        return <Alert message="Error" description="Failed to load document insights." type="error" showIcon />;
+    }
+
+    if (!documentData) {
+        return <Alert message="No Data" description="No document data available." type="warning" showIcon />;
+    }
 
     const validationData = prepareValidationData();
     const qualityData = prepareQualityData();
@@ -273,7 +194,7 @@ const DocumentInsight = () => {
             <Card title={<Title level={4}><ScanOutlined /> OCR & Extracted Data</Title>} style={{ marginBottom: '12px' }}>
                 <Alert message="OCR Provider: Gemini Vision Pro API" type="info" showIcon style={{ marginBottom: '8px' }} />
                 <Row gutter={[8, 8]}>
-                    {Object.entries(documentData.ocrResults.structured_data)
+                    {documentData.ocrResults && documentData.ocrResults.structured_data ? Object.entries(documentData.ocrResults.structured_data)
                         .filter(([key]) => key !== 'raw_text')
                         .map(([key, value], index) => (
                             <Col span={8} key={index}>
@@ -281,7 +202,7 @@ const DocumentInsight = () => {
                                     <Statistic title={key.replace(/_/g, ' ').toUpperCase()} value={value} valueStyle={{ fontSize: '14px' }} />
                                 </Card>
                             </Col>
-                        ))}
+                        )) : null}
                 </Row>
             </Card>
 
@@ -357,8 +278,8 @@ const DocumentInsight = () => {
                         <Col span={16}>
                             <Statistic title="Final Decision" value={documentData.decision} valueStyle={{ color: documentData.decision === "APPROVE" ? "green" : "red", fontSize: '20px' }} />
                             <Divider style={{ margin: '6px 0' }} />
-                            <Title level={5} style={{fontSize: '14px'}}>Summary:</Title>
-                            <Timeline style={{fontSize: '12px'}}>
+                            <Title level={5} style={{ fontSize: '14px' }}>Summary:</Title>
+                            <Timeline style={{ fontSize: '12px' }}>
                                 <Timeline.Item color={validationScoreColor}>Data Validation: {documentData.validationResults.overall_validation_score.toFixed(1)}% ({documentData.validationResults.status})</Timeline.Item>
                                 <Timeline.Item color={getRiskColor(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore)}>Forgery Risk: {(documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore * 100).toFixed(0)}% ({documentData.forgeryResults.forgeryAnalysis.overallForgeryAssessment.decision})</Timeline.Item>
                                 <Timeline.Item color={documentData.qualityResults.finalQualityScore >= 0.8 ? "green" : documentData.qualityResults.finalQualityScore >= 0.6 ? "orange" : "red"}>Image Quality: {(documentData.qualityResults.finalQualityScore * 100).toFixed(0)}% ({documentData.qualityResults.decision})</Timeline.Item>
