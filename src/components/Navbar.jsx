@@ -1,7 +1,8 @@
 import React from 'react';
 import { Layout, Typography } from 'antd';
 import ProfileMenu from './ProfileMenu';
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.png';           // Fraud icon
+import loans24Logo from '../assets/loans24.png'; // Loans24 icon
 
 const { Header } = Layout;
 const { Title } = Typography;
@@ -23,15 +24,25 @@ const Navbar = ({ collapsed }) => {
       }}
     >
       <div className="logo" style={{ display: 'flex', alignItems: 'center' }}>
-      <img 
-        src={logo}    // Use imported image variable here
-        alt="Logo" 
-        style={{ height: '32px', marginRight: '16px' }} 
-      />
-      <Title level={4} style={{ margin: 0 }}>
-        Fraud Analysis
-      </Title>
-    </div>
+        {/* Fraud Icon */}
+        <img 
+          src={logo}    
+          alt="Fraud Icon" 
+          style={{ height: '32px', marginRight: '12px' }} 
+        />
+
+        {/* Title */}
+        <Title level={4} style={{ margin: 0 }}>
+          Fraud Analysis <span style={{ fontSize: '16px', color: '#555' }}>by</span>
+        </Title>
+
+        {/* Loans24 Icon */}
+        <img 
+          src={loans24Logo}    
+          alt="Loans24 Icon" 
+          style={{ height: '32px', marginLeft: '12px' }} 
+        />
+      </div>
       
       <ProfileMenu />
     </Header>
