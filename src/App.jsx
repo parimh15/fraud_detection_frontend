@@ -14,9 +14,13 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
+        
 
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<LoginPage />} /> 
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/upload" element={<UploadPage />}/>
+        <Route path="*" element={<Navigate to="/login" />} />
         {/* Main layout with correct nested routing */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
