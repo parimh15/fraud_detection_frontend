@@ -15,56 +15,56 @@ const RiskAssessmentDashboard = () => {
     const navigate = useNavigate();
 
     //const userId = '704c10fe-f318-407e-9aad-57fab900dc9a';
-    const userId='0f8aad1f-e421-412f-bf53-7ffa4cb4d34c';
+    const userId = 'fa202d15-fed9-48bf-aa98-1d466f874bc7';
     const generateInsightSummary = (insight, type) => {
-    if (type === 'document') {
-        let summary = "";
-        try {
-            const ocrData = JSON.parse(insight.ocrResults.output);
-            const extractedName = ocrData.structured_data.name || 'N/A';
+        if (type === 'document') {
+            let summary = "";
+            try {
+                const ocrData = JSON.parse(insight.ocrResults.output);
+                const extractedName = ocrData.structured_data.name || 'N/A';
 
-            const validationData = JSON.parse(insight.validationResults.output);
-            const validationScore = validationData.overall_validation_score.toFixed(1);
-            const validationStatus = validationData.status;
+                const validationData = JSON.parse(insight.validationResults.output);
+                const validationScore = validationData.overall_validation_score.toFixed(1);
+                const validationStatus = validationData.status;
 
-            const qualityData = JSON.parse(insight.qualityResults.output);
-            const qualityScore = (qualityData.finalQualityScore * 100).toFixed(0);
-            const qualityDecision = qualityData.decision;
+                const qualityData = JSON.parse(insight.qualityResults.output);
+                const qualityScore = (qualityData.finalQualityScore * 100).toFixed(0);
+                const qualityDecision = qualityData.decision;
 
-            const forgeryData = JSON.parse(insight.forgeryResults.output);
-            const forgeryRisk = (forgeryData.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore * 100).toFixed(0);
-            const forgeryDecision = forgeryData.forgeryAnalysis.overallForgeryAssessment.decision;
+                const forgeryData = JSON.parse(insight.forgeryResults.output);
+                const forgeryRisk = (forgeryData.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore * 100).toFixed(0);
+                const forgeryDecision = forgeryData.forgeryAnalysis.overallForgeryAssessment.decision;
 
 
-            summary = `Document analysis shows extracted name as ${extractedName}.  Data validation scored ${validationScore}% and the status is ${validationStatus}. Image quality is ${qualityScore}% and considered ${qualityDecision}.  Forgery risk is ${forgeryRisk}% (${forgeryDecision}).`;
-        } catch (e) {
-            summary = "Error generating document summary. Some information may be missing.";
+                summary = `Document analysis shows extracted name as ${extractedName}.  Data validation scored ${validationScore}% and the status is ${validationStatus}. Image quality is ${qualityScore}% and considered ${qualityDecision}.  Forgery risk is ${forgeryRisk}% (${forgeryDecision}).`;
+            } catch (e) {
+                summary = "Error generating document summary. Some information may be missing.";
+            }
+
+            return summary;
+
+        } else if (type === 'audio') {
+            let summary = "";
+            try {
+                const llmData = JSON.parse(insight.llmExtraction.output);
+                const overallScore = llmData.scoring_results.overall_score.toFixed(1);
+                const refName = llmData.extracted_result.reference_name || 'N/A';
+                const subjectName = llmData.extracted_result.subject_name || 'N/A';
+
+                const audioData = JSON.parse(insight.audioAnalysis.output);
+                const snrGrade = audioData.snr_grade || 'N/A';
+                const overallQuality = audioData.overall_quality || 'N/A';
+
+                summary = `Audio analysis: Overall score is ${overallScore}. Reference name is ${refName}, and subject name is ${subjectName}. Audio signal quality is ${snrGrade} and overall audio quality is ${overallQuality}.`;
+            } catch (e) {
+                summary = "Error generating audio summary. Some information may be missing.";
+            }
+
+            return summary;
+        } else {
+            return "Unsupported insight type";
         }
-
-        return summary;
-
-    } else if (type === 'audio') {
-        let summary = "";
-        try {
-            const llmData = JSON.parse(insight.llmExtraction.output);
-            const overallScore = llmData.scoring_results.overall_score.toFixed(1);
-            const refName = llmData.extracted_result.reference_name || 'N/A';
-            const subjectName = llmData.extracted_result.subject_name || 'N/A';
-
-            const audioData = JSON.parse(insight.audioAnalysis.output);
-            const snrGrade = audioData.snr_grade || 'N/A';
-            const overallQuality = audioData.overall_quality || 'N/A';
-
-            summary = `Audio analysis: Overall score is ${overallScore}. Reference name is ${refName}, and subject name is ${subjectName}. Audio signal quality is ${snrGrade} and overall audio quality is ${overallQuality}.`;
-        } catch (e) {
-            summary = "Error generating audio summary. Some information may be missing.";
-        }
-
-        return summary;
-    } else {
-        return "Unsupported insight type";
-    }
-};
+    };
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -99,46 +99,46 @@ const RiskAssessmentDashboard = () => {
 
                 // Process document insights
                 if (userData.documents && Array.isArray(userData.documents)) {
-                  const processedDocuments = userData.documents.map(doc => {
-                      // Generate the summary
-                      const documentSummary = generateInsightSummary(doc, 'document');
-      
-                      return {
-                          id: doc.id || `doc-${Math.random().toString(36).substr(2, 9)}`,
-                          type: "document",
-                          title: doc.fileName || "Untitled Document",
-                          summary: documentSummary, // Use the generated summary
-                          riskLevel: doc.riskLevel ? doc.riskLevel.toLowerCase() : "low",
-                          timestamp: new Date().toISOString(),
-                          score: doc.finalRiskScore || 0,
-                          originalData: doc
-                      };
-                  });
-      
-                  setDocumentInsights(processedDocuments);
-              }
-      
-              // Process audio insights
-              if (userData.audioCalls && Array.isArray(userData.audioCalls)) {
-                  const processedAudioCalls = userData.audioCalls.map(call => {
-                      //Generate the summary
-                      const audioSummary = generateInsightSummary(call, 'audio');
-      
-                      return {
-                          id: call.id || `audio-${Math.random().toString(36).substr(2, 9)}`,
-                          type: "audio",
-                          title: call.fileName || call.callId || "Untitled Audio",
-                          summary: audioSummary,
-                          riskLevel: call.riskLevel ? call.riskLevel.toLowerCase() : "low",
-                          timestamp: call.date || new Date().toISOString(),
-                          duration: call.duration || "00:00",
-                          score: call.score || calculateMockScore(call.riskLevel ? call.riskLevel.toLowerCase() : "low"),
-                          originalData: call // Store original data for detailed view
-                      };
-                  });
-      
-                  setAudioInsights(processedAudioCalls);
-              }
+                    const processedDocuments = userData.documents.map(doc => {
+                        // Generate the summary
+                        const documentSummary = generateInsightSummary(doc, 'document');
+
+                        return {
+                            id: doc.id || `doc-${Math.random().toString(36).substr(2, 9)}`,
+                            type: "document",
+                            title: doc.fileName || "Untitled Document",
+                            summary: documentSummary, // Use the generated summary
+                            riskLevel: doc.riskLevel ? doc.riskLevel.toLowerCase() : "low",
+                            timestamp: new Date().toISOString(),
+                            score: doc.finalRiskScore || 0,
+                            originalData: doc
+                        };
+                    });
+
+                    setDocumentInsights(processedDocuments);
+                }
+
+                // Process audio insights
+                if (userData.audioCalls && Array.isArray(userData.audioCalls)) {
+                    const processedAudioCalls = userData.audioCalls.map(call => {
+                        //Generate the summary
+                        const audioSummary = generateInsightSummary(call, 'audio');
+
+                        return {
+                            id: call.id || `audio-${Math.random().toString(36).substr(2, 9)}`,
+                            type: "audio",
+                            title: call.fileName || call.callId || "Untitled Audio",
+                            summary: audioSummary,
+                            riskLevel: call.riskLevel ? call.riskLevel.toLowerCase() : "low",
+                            timestamp: call.date || new Date().toISOString(),
+                            duration: call.duration || "00:00",
+                            score: call.score || calculateMockScore(call.riskLevel ? call.riskLevel.toLowerCase() : "low"),
+                            originalData: call // Store original data for detailed view
+                        };
+                    });
+
+                    setAudioInsights(processedAudioCalls);
+                }
 
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -207,11 +207,10 @@ const RiskAssessmentDashboard = () => {
             key={insight.id}
             className="insight-card"
             style={{
-                borderLeft: `4px solid ${
-                    insight.riskLevel === 'high' ? '#ff4d4f' :
-                    insight.riskLevel === 'medium' ? '#faad14' :
-                    '#52c41a'
-                }`,
+                borderLeft: `4px solid ${insight.riskLevel === 'high' ? '#ff4d4f' :
+                        insight.riskLevel === 'medium' ? '#faad14' :
+                            '#52c41a'
+                    }`,
                 marginBottom: '16px'
             }}
         >
