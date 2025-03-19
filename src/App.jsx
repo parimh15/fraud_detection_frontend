@@ -1,23 +1,37 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Home from "./pages/Home";
-import Insights from "./pages/OverallInsights";
-import DocumentDetails from "./pages/DocumentInsights";
-import AudioDetails from "./pages/AudioInsights";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import Home from './pages/Home';
+
+import OverallInsights from './pages/RiskAssessmentDashboard';
+import DocumentInsight from './pages/DocumentInsights';
+import AudioInsight from './pages/AudioInsights';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import UploadPage from './pages/UploadPage';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/overallinsights" element={<Insights />} />
-        <Route path="/document/:id" element={<DocumentDetails />} />
-        <Route path="/audio/:id" element={<AudioDetails />} />
+        {/* Public Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+
+        {/* Protected Routes inside MainLayout */}
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<Home />} />  {/* Default Home */}
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="insights" element={<OverallInsights />} />
+          <Route path="document/:id" element={<DocumentInsight />} />
+          <Route path="audio/:id" element={<AudioInsight />} />
+        </Route>
+
+        {/* Redirect any unknown routes to login */}
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
+   
   );
 }
 
