@@ -58,7 +58,7 @@ const AudioInsights = () => {
     useEffect(() => {
         if (audioData) {
             // Fix for audio path - using a public URL format that the browser can access
-            audioRef.current = new Audio(`http://localhost:8080/audio-file/${id}`);
+            audioRef.current = new Audio(`http://localhost:8080/audio/audio-file/${id}`);
 
             // Add event listeners
             audioRef.current.addEventListener('ended', () => setIsPlaying(false));
@@ -231,7 +231,7 @@ const AudioInsights = () => {
     // Safely access audioData properties with null checks and default values
     const parsedTranscript = parseTranscript(audioData?.transcript || []);
     const fieldComparisonData = prepareFieldComparison();
-    
+
     // Ensure all audioAnalysis properties exist before accessing
     const audioAnalysis = audioData?.audioAnalysis || {};
     const snrValue = audioAnalysis.snr_value !== undefined ? audioAnalysis.snr_value : 0;
@@ -277,15 +277,15 @@ const AudioInsights = () => {
                                     <Statistic
                                         title="Status"
                                         value={(audioData?.status || 'pending').toUpperCase()}
-                                        valueStyle={{ 
-                                            color: statusColor[audioData?.status || 'pending'] === 'success' 
-                                                ? '#52c41a' 
+                                        valueStyle={{
+                                            color: statusColor[audioData?.status || 'pending'] === 'success'
+                                                ? '#52c41a'
                                                 : statusColor[audioData?.status || 'pending'] === 'error'
                                                     ? '#f5222d'
                                                     : '#faad14'
                                         }}
-                                        prefix={audioData?.status === 'accept' 
-                                            ? <CheckCircleOutlined /> 
+                                        prefix={audioData?.status === 'accept'
+                                            ? <CheckCircleOutlined />
                                             : audioData?.status === 'reject'
                                                 ? <CloseCircleOutlined />
                                                 : <InfoCircleOutlined />
