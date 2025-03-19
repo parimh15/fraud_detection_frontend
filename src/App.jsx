@@ -17,11 +17,7 @@ function App() {
         {/* Public Routes */}
 
 
-        <Route path="/" element={<Navigate to="/login" />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+        
         {/* Main layout with correct nested routing */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
@@ -29,6 +25,11 @@ function App() {
           <Route path="insights" element={<OverallInsights />} />
           <Route path="document/:id" element={<DocumentInsight />} />
           <Route path="audio/:id" element={<AudioInsight />} />
+          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="*" element={<Navigate to="/login" />} />
         </Route>
 
         {/* Catch-all */}
