@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import Upload from './pages/Upload';
-import OverallInsights from './pages/OverallInsights';  
+import OverallInsights from './pages/RiskAssessmentDashboard';  
 import DocumentInsight from './pages/DocumentInsights';
 import AudioInsight from './pages/AudioInsights';
 import Login from './pages/Login';
