@@ -19,6 +19,7 @@ const DocumentInsight = () => {
     const [imageURL, setImageURL] = useState(null);
     const [imageError, setImageError] = useState(null);
     const { id } = useParams();
+    
 
     useEffect(() => {
         const fetchData = async () => {

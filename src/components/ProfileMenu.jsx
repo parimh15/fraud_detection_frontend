@@ -9,25 +9,39 @@ const ProfileMenu = () => {
   const [username, setUsername] = useState('User');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Get username from localStorage or your auth system
-    const storedUser = localStorage.getItem('user');
+  //  Function to update username from localStorage
+  const updateUsername = () => {
+    const storedUser = localStorage.getItem("userName");
     if (storedUser) {
       try {
-        const userObj = JSON.parse(storedUser);
-        setUsername(userObj.username || 'User');
+        const userObj = localStorage.getItem("userName");
+        setUsername(userObj || 'User');  //  Set username
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
     }
+  };
+
+  useEffect(() => {
+    updateUsername(); // Load username on mount
+
+    // ✅ Listen for "user-updated" event from fetchUserData
+    const handleUserUpdate = () => updateUsername();
+
+    window.addEventListener("user-updated", handleUserUpdate);
+    return () => window.removeEventListener("user-updated", handleUserUpdate);
   }, []);
 
   const handleLogout = () => {
-    // Clear user data from localStorage
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    // Redirect to login page
-    navigate('/login');
+    //  Clear all user-related data from localStorage
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+
+    //  Dispatch a custom event to notify other components
+    window.dispatchEvent(new Event("user-logged-out"));
+
+    //  Redirect to login page
+    navigate('/login', { replace: true }); // Prevents back navigation
   };
 
   const menuItems = [

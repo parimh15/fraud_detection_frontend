@@ -40,14 +40,21 @@ const AudioInsights = () => {
     const audioRef = useRef(null);
     const { id } = useParams();
 
-
     useEffect(() => {
         const fetchAudioData = async () => {
             try {
+                // Directly fetch the audio data using the audio ID.  No need to go through /users
                 const response = await axios.get(`http://localhost:8080/audio/${id}`);
-                setAudioData(response.data);
+
+                if (response.data) {
+                    setAudioData(response.data);
+                } else {
+                    setError('No audio data found for this ID');
+                }
+
                 setLoading(false);
             } catch (err) {
+                console.error('Error fetching audio data:', err);
                 setError('Failed to load audio data');
                 setLoading(false);
             }
@@ -57,9 +64,9 @@ const AudioInsights = () => {
     }, [id]);
 
     useEffect(() => {
-        if (audioData) {
-            // Fix for audio path - using a public URL format that the browser can access
-            audioRef.current = new Audio(`http://localhost:8080/audio/audio-file/${id}`);
+        if (audioData && audioData.uuid) { // Check for uuid instead of id, and ensure audioData exists
+            // Construct audio URL using the uuid
+            audioRef.current = new Audio(`http://localhost:8080/audio/audio-file/${audioData.uuid}`);
 
             // Add event listeners
             audioRef.current.addEventListener('ended', () => setIsPlaying(false));
@@ -76,7 +83,7 @@ const AudioInsights = () => {
                 }
             };
         }
-    }, [audioData, id]);
+    }, [audioData]);  // Correct dependency array
 
     const togglePlayPause = () => {
         if (isPlaying) {
@@ -99,65 +106,52 @@ const AudioInsights = () => {
         setShowTranscript(!showTranscript);
     };
 
-    // Convert transcript array to a more structured format
-    const parseTranscript = (transcriptArray) => {
-        if (!transcriptArray) return [];
-
-        return transcriptArray.map(item => {
-            // Parse the string to extract values
-            const startMatch = item.match(/start_time=([^,}]+)/);
-            const endMatch = item.match(/end_time=([^,}]+)/);
-            const speakerMatch = item.match(/speaker=([^,}]+)/);
-            const textMatch = item.match(/text=([^}]+)}/);
-
-            return {
-                startTime: startMatch ? parseFloat(startMatch[1]) : 0,
-                endTime: endMatch ? parseFloat(endMatch[1]) : 0,
-                speaker: speakerMatch ? speakerMatch[1] : '',
-                text: textMatch ? textMatch[1] : ''
-            };
-        });
+    // Format time for transcript
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs < 10 ? '0' + secs : secs}`;
     };
 
     // Prepare field comparison data
     const prepareFieldComparison = () => {
-        if (!audioData) return [];
+        if (!audioData?.llmExtraction?.extracted_result) return [];  // Null check
 
         return [
             {
                 field: 'Reference Name',
-                extracted: audioData.referenceName || 'N/A',
-                expected: audioData.referenceName || 'N/A', // Assuming ground truth is the same for simplicity
-                score: audioData.fieldByFieldScores?.reference_name || 0,
-                explanation: audioData.explanation?.[0] || 'No explanation available'
+                extracted: audioData.llmExtraction.extracted_result.reference_name || 'N/A',
+                expected: audioData.llmExtraction.extracted_result.reference_name || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.reference_name || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.reference_name || 'No explanation available'
             },
             {
                 field: 'Subject Name',
-                extracted: audioData.subjectName || 'N/A',
-                expected: 'Matthew', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_name || 0,
-                explanation: audioData.explanation?.[1] || 'No explanation available'
+                extracted: audioData.llmExtraction.extracted_result.subject_name || 'N/A',
+                expected: audioData.llmExtraction.extracted_result.subject_name || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_name || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_name || 'No explanation available'
             },
             {
                 field: 'Subject Address',
-                extracted: audioData.subjectAddress || 'N/A',
-                expected: 'Pattimatham, Ernakulam', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_address || 0,
-                explanation: audioData.explanation?.[2] || 'No explanation available'
+                extracted: audioData.llmExtraction.extracted_result.subject_address || 'N/A',
+                expected: audioData.llmExtraction.extracted_result.subject_address || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_address || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_address || 'No explanation available'
             },
             {
                 field: 'Relation to Subject',
-                extracted: audioData.relationToSubject || 'N/A',
-                expected: 'work together', // Based on the explanation
-                score: audioData.fieldByFieldScores?.relation_to_subject || 0,
-                explanation: audioData.explanation?.[3] || 'No explanation available'
+                extracted: audioData.llmExtraction.extracted_result.relation_to_subject || 'N/A',
+                expected: audioData.llmExtraction.extracted_result.relation_to_subject || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.relation_to_subject || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.relation_to_subject || 'No explanation available'
             },
             {
                 field: 'Subject Occupation',
-                extracted: audioData.subjectOccupation || 'N/A',
-                expected: 'unemployed', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_occupation || 0,
-                explanation: audioData.explanation?.[4] || 'No explanation available'
+                extracted: audioData.llmExtraction.extracted_result.subject_occupation || 'N/A',
+                expected: audioData.llmExtraction.extracted_result.subject_occupation || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_occupation || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_occupation || 'No explanation available'
             }
         ];
     };
@@ -167,13 +161,6 @@ const AudioInsights = () => {
         if (score >= 0.8) return '#52c41a';
         if (score >= 0.6) return '#faad14';
         return '#f5222d';
-    };
-
-    // Format time for transcript
-    const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs < 10 ? '0' + secs : secs}`;
     };
 
     const statusColor = {
@@ -229,36 +216,20 @@ const AudioInsights = () => {
         }
     ];
 
-    // Safely access audioData properties with null checks and default values
-    const transcripts = audioData?.transcripts || [];
-
-    // Example Transcript Parsing (assuming a very specific and consistent format):
-    const parsedTranscript = transcripts.map(entry => {
-        try {
-            const parts = entry.split(", ");
-            const startTime = parseFloat(parts[0].split("=")[1]);
-            const endTime = parseFloat(parts[1].split("=")[1]);
-            const speaker = parts[2].split("=")[1];
-            const text = parts[3].split("=")[1].slice(0, -1); //remove }
-            return { startTime, endTime, speaker, text };
-        } catch (error) {
-            console.error("Error parsing transcript entry:", entry, error);
-            return null; // Or a default object
-        }
-    }).filter(entry => entry !== null); // Remove any failed parses
+    // Use the transcript data from audioData.llmExtraction.transcript
+    const parsedTranscript = audioData?.llmExtraction?.transcript?.map((entry, index) => ({
+        startTime: entry.start_time || 0,
+        endTime: entry.end_time || 0,
+        speaker: entry.speaker || 'UNKNOWN',
+        text: entry.text || 'N/A'
+    })) || [];
 
     const fieldComparisonData = prepareFieldComparison();
 
-    // Ensure all audioAnalysis properties exist before accessing
-    const audioAnalysis = audioData?.audioAnalysis || {};
+    // Audio analysis data is directly available in audioData.audioAnalysis
+    const snrValue = audioData?.audioAnalysis?.snr_value !== undefined ? audioData.audioAnalysis.snr_value : 0;
+    const fluctuationScore = audioData?.audioAnalysis?.fluctuation_score !== undefined ? audioData.audioAnalysis.fluctuation_score : 0;
 
-    // Check if output exists and is a string, then parse it
-    const parsedOutput = audioAnalysis.output
-        ? JSON.parse(audioAnalysis.output)
-        : {};
-
-    const snrValue = parsedOutput.snr_value !== undefined ? parsedOutput.snr_value : 0;
-    const fluctuationScore = parsedOutput.fluctuation_score !== undefined ? parsedOutput.fluctuation_score : 0;
     // SNR tooltip info
     const snrTooltip = "Signal-to-Noise Ratio (SNR) measures the level of desired audio signal compared to background noise. Higher values (measured in dB) indicate clearer audio with less noise.";
 
@@ -298,17 +269,17 @@ const AudioInsights = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="Status"
-                                        value={(audioData?.status || 'pending').toUpperCase()}
+                                        value={(audioData?.llmExtraction?.status || 'pending').toUpperCase()}
                                         valueStyle={{
-                                            color: statusColor[audioData?.status || 'pending'] === 'success'
+                                            color: statusColor[audioData?.llmExtraction?.status || 'pending'] === 'success'
                                                 ? '#52c41a'
-                                                : statusColor[audioData?.status || 'pending'] === 'error'
+                                                : statusColor[audioData?.llmExtraction?.status || 'pending'] === 'error'
                                                     ? '#f5222d'
                                                     : '#faad14'
                                         }}
-                                        prefix={audioData?.status === 'accept'
+                                        prefix={audioData?.llmExtraction?.status === 'accept'
                                             ? <CheckCircleOutlined />
-                                            : audioData?.status === 'reject'
+                                            : audioData?.llmExtraction?.status === 'reject'
                                                 ? <CloseCircleOutlined />
                                                 : <InfoCircleOutlined />
                                         }
@@ -317,12 +288,12 @@ const AudioInsights = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="Overall Score"
-                                        value={`${Math.round((audioData?.overallScore || 0) * 100)}%`}
-                                        valueStyle={{ color: getScoreColor(audioData?.overallScore || 0) }}
+                                        value={`${Math.round((audioData?.llmExtraction?.scoring_results?.overall_score || 0) * 100)}%`}
+                                        valueStyle={{ color: getScoreColor(audioData?.llmExtraction?.scoring_results?.overall_score || 0) }}
                                     />
                                     <Progress
-                                        percent={Math.round((audioData?.overallScore || 0) * 100)}
-                                        strokeColor={getScoreColor(audioData?.overallScore || 0)}
+                                        percent={Math.round((audioData?.llmExtraction?.scoring_results?.overall_score || 0) * 100)}
+                                        strokeColor={getScoreColor(audioData?.llmExtraction?.scoring_results?.overall_score || 0)}
                                         showInfo={false}
                                         style={{ marginTop: 8 }}
                                     />
@@ -343,9 +314,9 @@ const AudioInsights = () => {
                                         </Tooltip>
                                     </div>
                                     <Statistic
-                                        value={audioAnalysis.snr_grade || 'N/A'}
+                                        value={audioData?.audioAnalysis?.snr_grade || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.snr_grade === 'Good') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.snr_grade === 'Good') ? '#52c41a' : '#faad14'
                                         }}
                                     />
                                     <Text type="secondary">{snrValue.toFixed(1)} dB</Text>
@@ -358,9 +329,9 @@ const AudioInsights = () => {
                                         </Tooltip>
                                     </div>
                                     <Statistic
-                                        value={audioAnalysis.fluctuation_level || 'N/A'}
+                                        value={audioData?.audioAnalysis?.fluctuation_level || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.fluctuation_level === 'Stable') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.fluctuation_level === 'Stable') ? '#52c41a' : '#faad14'
                                         }}
                                     />
                                     <Text type="secondary">{fluctuationScore.toFixed(2)}</Text>
@@ -368,9 +339,9 @@ const AudioInsights = () => {
                                 <Col span={8}>
                                     <Statistic
                                         title="Overall Quality"
-                                        value={audioAnalysis.overall_quality || 'N/A'}
+                                        value={audioData?.audioAnalysis?.overall_quality || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.overall_quality === 'Good') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.overall_quality === 'Good') ? '#52c41a' : '#faad14'
                                         }}
                                     />
                                 </Col>

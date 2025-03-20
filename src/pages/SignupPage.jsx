@@ -26,6 +26,7 @@ const SignupPage = () => {
       // Store userId in localStorage (ensure backend returns it)
       if (response.data.id) {
         localStorage.setItem("userId", response.data.id);
+        localStorage.setItem("userName", response.data.name);
       } else {
         console.warn("User ID not found in response");
       }
@@ -38,6 +39,7 @@ const SignupPage = () => {
     } catch (error) {
       console.error('Registration error:', error);
       message.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      alert('Registration failed. Please try again.')
     } finally {
       setLoading(false);
     }
