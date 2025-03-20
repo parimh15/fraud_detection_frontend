@@ -9,6 +9,7 @@ import AudioInsight from './pages/AudioInsights';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import UploadPage from './pages/UploadPage';
+import CustomInsightPage from './pages/CustomInsightPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="insights" element={<OverallInsights />} />
           <Route path="document/:id" element={<DocumentInsight />} />
           <Route path="audio/:id" element={<AudioInsight />} />
+          <Route path="custom-insight" element={<CustomInsightPage />} />
         </Route>
 
         {/* Redirect any unknown routes to login */}

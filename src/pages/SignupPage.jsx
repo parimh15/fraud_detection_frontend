@@ -4,7 +4,7 @@ import { GoogleOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Signup.css';
-import signupIllustration from '../assets/register.png';
+import signupIllustration from '../assets/logo.png';
 
 const SignupPage = () => {
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,7 @@ const SignupPage = () => {
       // Store userId in localStorage (ensure backend returns it)
       if (response.data.id) {
         localStorage.setItem("userId", response.data.id);
+        localStorage.setItem("userName", response.data.name);
       } else {
         console.warn("User ID not found in response");
       }
@@ -38,6 +39,7 @@ const SignupPage = () => {
     } catch (error) {
       console.error('Registration error:', error);
       message.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      alert('Registration failed. Please try again.')
     } finally {
       setLoading(false);
     }
