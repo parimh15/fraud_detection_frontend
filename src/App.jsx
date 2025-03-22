@@ -4,7 +4,8 @@ import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 
 import OverallInsights from './pages/RiskAssessmentDashboard';
-import DocumentInsight from './pages/DocumentInsights';
+import DocumentInsight from './pages/DocumentInsights';     
+// it is insight not insights
 import AudioInsight from './pages/AudioInsights';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -24,12 +25,11 @@ function App() {
           <Route index element={<Home />} />  {/* Default Home */}
           <Route path="upload" element={<UploadPage />} />
           <Route path="insights" element={<OverallInsights />} />
-          <Route path="document/:id" element={<DocumentInsight />} />
+          <Route path="documents/:userId/:documentType" element={<DocumentInsight />} />  
+           {/* // fixed the route to fetch docType*/}
           <Route path="audio/:id" element={<AudioInsight />} />
           <Route path="custom-insight" element={<CustomInsightPage />} />
         </Route>
-
-        {/* Redirect any unknown routes to login */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

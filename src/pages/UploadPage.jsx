@@ -72,7 +72,7 @@ const beforeUpload = (file) => {
     }
     const formData = new FormData();
     formData.append("file", file);  //Sending the MP3 file as-is
-    formData.append("userReportId", userId);
+    formData.append("userId", userId);
     formData.append("documentType", fileType); 
     const endpoint =
       fileType === "REFERENCE_CALL"

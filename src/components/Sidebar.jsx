@@ -34,7 +34,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 
     const sidebarItems = [
         {
-            key: 'dashboard',
+            key: '/',
             icon: <DashboardOutlined />,
             label: 'Dashboard',
         },

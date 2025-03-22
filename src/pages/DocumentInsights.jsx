@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
@@ -13,13 +14,26 @@ import {
 const { Title, Text, Paragraph } = Typography;
 
 const DocumentInsight = () => {
+
+    const getDocumentTypeFromLocalStorage = () => {
+        try {
+            const storedDocumentType = localStorage.getItem('documentType'); // Replace 'documentType' with the actual key you use to store it
+            return storedDocumentType || null; // Return null if not found
+        } catch (error) {
+            console.error("Error accessing localStorage:", error);
+            return null; // Handle errors, like if localStorage is disabled
+        }
+    };
+
+    const { userId, documentType: routeDocumentType } = useParams();  //Destructure both userId and documentType from params
+    const [localStorageDocumentType, setLocalStorageDocumentType] = useState(getDocumentTypeFromLocalStorage());
+
+    const documentType = routeDocumentType || localStorageDocumentType;
     const [documentData, setDocumentData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [imageURL, setImageURL] = useState(null);
     const [imageError, setImageError] = useState(null);
-    const { id } = useParams();
-    
 
     useEffect(() => {
         const fetchData = async () => {
@@ -27,20 +41,26 @@ const DocumentInsight = () => {
             setError(null);
             setImageError(null);
             try {
-                const result = await axios.get(`http://localhost:8080/documents/result?documentId=${id}`);
+                const result = await axios.get(`http://localhost:8080/documents/${userId}/${documentType}`);  // Use userId and documentType
                 setDocumentData(result.data);
                 console.log("Fetched DocumentData:", result.data);
 
-                try {
-                    const imageResponse = await axios.get(`http://localhost:8080/documents/image/${id}`, {
-                        responseType: 'blob'
-                    });
+               if (result.data.documentId) { // Check if documentId exists before fetching image //${result.data.documentId}
+                    try {
+                        const imageResponse = await axios.get(`http://localhost:8080/documents/image/75fd4f26-8371-4613-8c58-78b517d6d12f`, {  // Correctly fetch image using documentId from the fetched data
+                            responseType: 'blob'
+                        });
 
-                    const imageUrl = URL.createObjectURL(imageResponse.data);
-                    setImageURL(imageUrl);
-                } catch (imageFetchError) {
-                    console.error("Error fetching image:", imageFetchError);
-                    setImageError("Failed to load document preview.");
+                        const imageUrl = URL.createObjectURL(imageResponse.data);
+                        setImageURL(imageUrl);
+                    } catch (imageFetchError) {
+                        console.error("Error fetching image:", imageFetchError);
+                        setImageError("Failed to load document preview.");
+                        setImageURL(null); // Ensure imageURL is null on error
+                    }
+                } else {
+                    setImageURL(null); // Set imageURL to null if documentId is missing
+                    setImageError("Document ID is missing. Cannot load preview.");
                 }
 
             } catch (error) {
@@ -58,7 +78,22 @@ const DocumentInsight = () => {
                 URL.revokeObjectURL(imageURL);
             }
         };
-    }, [id]);
+    }, [userId, documentType, localStorageDocumentType, imageURL]);
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const newDocumentType = getDocumentTypeFromLocalStorage();
+            if (newDocumentType !== localStorageDocumentType) {
+                setLocalStorageDocumentType(newDocumentType);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [localStorageDocumentType]); // The dependency array includes localStorageDocumentType
 
     const getRiskColor = (score) => {
         if (score === null || score === undefined) {
@@ -250,7 +285,7 @@ const DocumentInsight = () => {
     const nextSteps = documentData?.nextSteps || 'No next steps provided';
     const remarks = documentData?.remarks || 'No remarks provided';
     const finalRiskScore = documentData?.finalRiskScore || 0;
-    const documentType = documentData?.ocrResults?.structured_data?.document_type || 'Unknown';
+    const documentTypeDisplay = documentData?.ocrResults?.structured_data?.document_type || documentType || 'Unknown';
 
     // Calculate quality score safely
     const qualityScore = documentData?.qualityResults?.finalQualityScore || 0;
@@ -272,16 +307,16 @@ const DocumentInsight = () => {
     return (
         <div style={{ padding: '24px', fontSize: '13px' }}>
             <Card className="summary-card" style={{ marginBottom: '12px' }}>
-            <Row gutter={[24, 16]}>
-                <Col span={15}>
-                    <Title level={3}><FileTextOutlined /> Document Verification Report</Title>
-                    <Descriptions bordered column={1} size="small" style={{ marginBottom: '16px' }}>
-                        <Descriptions.Item label="Processing Status"><Tag color="green"><CheckOutlined /> Completed</Tag></Descriptions.Item>
-                    </Descriptions>
+                <Row gutter={[24, 16]}>
+                    <Col span={15}>
+                        <Title level={3}><FileTextOutlined /> Document Verification Report</Title>
+                        <Descriptions bordered column={1} size="small" style={{ marginBottom: '16px' }}>
+                            <Descriptions.Item label="Processing Status"><Tag color="green"><CheckOutlined /> Completed</Tag></Descriptions.Item>
+                        </Descriptions>
 
-                    <Card style={{ 
-                            marginTop: '8px', 
-                            backgroundColor: riskAssessmentColor, 
+                        <Card style={{
+                            marginTop: '8px',
+                            backgroundColor: riskAssessmentColor,
                             borderColor: riskAssessmentColor,
                             padding: '8px'
                         }}>
@@ -290,67 +325,67 @@ const DocumentInsight = () => {
                                 prefix={riskLevel === "LOW" ? <CheckCircleOutlined /> : riskLevel === "MEDIUM" ? <ExclamationCircleOutlined /> : <CloseCircleOutlined />} />
                             <Divider style={{ margin: '8px 0' }} />
                             <Row gutter={[16, 0]}>
-                            <Col span={10}><Statistic title="Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red" }} /></Col>
-                            <Col span={14}>
-                                <div style={{ paddingLeft: '8px' }}>
-                                    <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
-                                    <Text strong>Remarks:</Text> <Text>{remarks}</Text>
-                                </div>
-                            </Col>
-                        </Row>
+                                <Col span={10}><Statistic title="Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red" }} /></Col>
+                                <Col span={14}>
+                                    <div style={{ paddingLeft: '8px' }}>
+                                        <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
+                                        <Text strong>Remarks:</Text> <Text>{remarks}</Text>
+                                    </div>
+                                </Col>
+                            </Row>
                         </Card>
                     </Col>
                     <Col span={9} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Card 
-                        style={{ 
-                            width: '100%', 
-                            marginBottom: '8px', 
-                            textAlign: 'center',
-                            background: 'linear-gradient(135deg, #e6f7ff, #bae7ff)',
-                            borderLeft: '4px solid #1890ff'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <FileTextOutlined style={{ fontSize: '18px', marginRight: '8px', color: '#1890ff' }} />
-                            <Title level={4} style={{ margin: '0', color: '#1890ff', textTransform: 'uppercase' }}>{documentType}</Title>
-                        </div>
-                        <Text type="secondary">Government-issued Identity Document</Text>
-                    </Card>
-                    <Card 
-    title={<span><FileImageOutlined /> Document Preview</span>}
-    style={{ 
-        width: '100%',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.09)'
-    }}
-    headStyle={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}
->
-    <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center',
-        padding: '12px',
-        background: '#f9f9f9',
-        borderRadius: '4px'
-    }}>
-        {imageURL ? (
-            <Image 
-                width={180} 
-                src={imageURL} 
-                alt="Document Preview"
-                style={{ border: '1px solid #d9d9d9', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}
-            />
-        ) : (
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-                {imageError ? 
-                    <Alert message={imageError} type="error" showIcon /> : 
-                    <Spin tip="Loading preview..." />
-                }
-            </div>
-        )}
-    </div>
-    <div style={{ textAlign: 'center', marginTop: '8px' }}>
-        <Text type="secondary">Secure document • Verified <CheckCircleOutlined style={{ color: 'green' }} /></Text>
-    </div>
-</Card>
+                        <Card
+                            style={{
+                                width: '100%',
+                                marginBottom: '8px',
+                                textAlign: 'center',
+                                background: 'linear-gradient(135deg, #e6f7ff, #bae7ff)',
+                                borderLeft: '4px solid #1890ff'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <FileTextOutlined style={{ fontSize: '18px', marginRight: '8px', color: '#1890ff' }} />
+                                <Title level={4} style={{ margin: '0', color: '#1890ff', textTransform: 'uppercase' }}>{documentTypeDisplay}</Title>
+                            </div>
+                            <Text type="secondary">Government-issued Identity Document</Text>
+                        </Card>
+                        <Card
+                            title={<span><FileImageOutlined /> Document Preview</span>}
+                            style={{
+                                width: '100%',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.09)'
+                            }}
+                            headStyle={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}
+                        >
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                padding: '12px',
+                                background: '#f9f9f9',
+                                borderRadius: '4px'
+                            }}>
+                                {imageURL ? (
+                                    <Image
+                                        width={180}
+                                        src={imageURL}
+                                        alt="Document Preview"
+                                        style={{ border: '1px solid #d9d9d9', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}
+                                    />
+                                ) : (
+                                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                                        {imageError ?
+                                            <Alert message={imageError} type="error" showIcon /> :
+                                            <Spin tip="Loading preview..." />
+                                        }
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                                <Text type="secondary">Secure document • Verified <CheckCircleOutlined style={{ color: 'green' }} /></Text>
+                            </div>
+                        </Card>
                     </Col>
                 </Row>
             </Card>

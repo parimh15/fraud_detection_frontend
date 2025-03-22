@@ -16,13 +16,13 @@ const OverallInsights = () => {
     const [insights, setInsights] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
-    const hardcodedUserId = localStorage.getItem("userId"); // Hardcoded User ID
 
     useEffect(() => {
         const fetchInsights = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`http://localhost:8080/users/${hardcodedUserId}`); // Replace with your actual API endpoint
+                const storedUserId = localStorage.getItem('userId');
+                const response = await fetch(`http://localhost:8080/users/${storedUserId}`); // Replace with your actual API endpoint
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -120,8 +120,7 @@ const OverallInsights = () => {
     };
 
     const handleViewDetails = (id, doctype, status) => {
-        //const userId = localStorage.getItem('userId'); // Get userId from localStorage
-        const userId = hardcodedUserId;
+        const userId = localStorage.getItem('userId'); // Get userId from localStorage
         if (status === 'Pending') {
             navigate('/upload'); // Navigate to UploadPage.jsx
         } else {
@@ -133,7 +132,7 @@ const OverallInsights = () => {
                     break;
                 default:
                     console.log(`Navigating to Document, ID: ${userId} Doctype: ${doctype}`);
-                    navigate(`/document/${userId}/${doctype.toLowerCase()}`); // Set the documentType as a parameter in the URL
+                    navigate(`/documents/${userId}/${doctype}`);  // Correctly pass doctype
                     break;
             }
         }

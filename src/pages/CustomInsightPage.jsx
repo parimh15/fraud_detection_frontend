@@ -55,6 +55,7 @@ const CustomInsightPage = () => {
                     label,
                 }));
                 setDocumentTypes(apiDocumentTypes);
+               // localStorage.getItem("documentType",apiDocumentTypes)
                 console.log("Document Types from API:", apiDocumentTypes);
 
             } catch (error) {
@@ -140,14 +141,18 @@ const CustomInsightPage = () => {
                 return;
             }
 
-            // Build the URL based on the selected document type and userId.
+             // Store the selected documentType in localStorage
+            
+             localStorage.setItem('documentType', values.documentType); //need to store doctype before navigating to next page
+            
+             // Build the URL based on the selected document type and userId.
             let insightURL = '';
             switch (values.documentType) {
                 case 'REFERENCE_CALL':
                     insightURL = `/audio/${userId}`;
                     break;
                 default:
-                    insightURL = `/document/${userId}`;
+                    insightURL = `/documents/${userId}/${values.documentType}`; //the url mentioned here was wrong values.doctype was missing
                     break;
             }
 
