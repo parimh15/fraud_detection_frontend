@@ -1,59 +1,61 @@
-// src/components/Sidebar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout, Menu } from 'antd';
 import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     UploadOutlined,
     DashboardOutlined,
-    FileTextOutlined,
-    SoundOutlined,
-    SearchOutlined //Added new icon
+    UserOutlined,
+    SearchOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const { Sider } = Layout;
 
-const Sidebar = ({ collapsed, setCollapsed }) => {
+const Sidebar = ({ collapsed, setCollapsed, leadName, leadId }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [menuItems, setMenuItems] = useState([
+        { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+        { key: 'leads', icon: <UserOutlined />, label: 'Leads' },
+        { key: 'upload', icon: <UploadOutlined />, label: 'Upload' },
+        { key: 'custom-insight', icon: <SearchOutlined />, label: 'Custom Search' },
+    ]);
 
-    const handleMenuClick = (key) => {
+    const handleMenuClick = useCallback(({ key }) => {
         navigate(key);
-    };
+    }, [navigate]);
 
-    const getSelectedKey = () => {
+    useEffect(() => {
+        if (leadName && leadId) {
+            const newMenuItemKey = `risk-assessment/${leadId}`;
+            const newMenuItem = {
+                key: newMenuItemKey,
+                label: `Insights: ${leadName}`,
+                icon: <SearchOutlined />,
+            };
+
+            const itemExists = menuItems.some(item => item.key === newMenuItemKey);
+
+            if (!itemExists) {
+                setMenuItems(prevItems => [...prevItems, newMenuItem]);
+            }
+        } else {
+            // Remove the dynamic menu item when leadName or leadId is null/undefined
+            setMenuItems(prevItems => prevItems.filter(item => !item.key.startsWith('risk-assessment/')));
+        }
+    }, [leadName, leadId]);
+
+    const getSelectedKey = useCallback(() => {
         const path = location.pathname;
         if (path === '/upload') return ['upload'];
-        if (path === '/insights') return ['insights'];
-        if (path === '/custom-insight') return ['custom-insight'];  //New page
+        if (path === '/leads') return ['leads'];
+        if (path === '/custom-insight') return ['custom-insight'];
         if (path.includes('/document')) return ['document'];
         if (path.includes('/audio')) return ['audio'];
+        if (path.startsWith('/risk-assessment/')) return [location.pathname]; //Highlight the current active tab
         return ['dashboard'];
-    };
-
-    const sidebarItems = [
-        {
-            key: 'dashboard',
-            icon: <DashboardOutlined />,
-            label: 'Dashboard',
-        },
-        {
-            key: 'upload',
-            icon: <UploadOutlined />,
-            label: 'Upload',
-        },
-        {
-            key: 'insights',
-            icon: <DashboardOutlined />,
-            label: 'Overall Insights',
-        },
-        {  //New item
-            key: 'custom-insight',
-            icon: <SearchOutlined />,  // new icon
-            label: 'Custom Insight',
-        },
-    ];
+    }, [location.pathname]);
 
     return (
         <Sider
@@ -87,8 +89,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                 theme="dark"
                 mode="inline"
                 selectedKeys={getSelectedKey()}
-                onClick={({ key }) => handleMenuClick(key)}
-                items={sidebarItems}
+                onClick={handleMenuClick}
+                items={menuItems}
             />
         </Sider>
     );

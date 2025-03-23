@@ -1,96 +1,160 @@
+// src/pages/LoginPage.js
+
 import React, { useState } from 'react';
-import { Form, Input, Button, Checkbox, message } from 'antd';
-import { GoogleOutlined } from '@ant-design/icons';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import './Login.css';
-import loginIllustration from '../assets/register.png';
+import {
+    Form,
+    Input,
+    Button,
+    message,
+    Layout,
+    Typography,
+    Divider,
+    Row,
+    Col,
+    Card
+} from 'antd';
+import {
+    UserOutlined,
+    LockOutlined,
+    LoginOutlined
+} from '@ant-design/icons';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+
+const { Title, Text } = Typography;
+const { Content } = Layout;
 
 const LoginPage = () => {
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const API_BASE_URL = 'http://localhost:8080';
+    const { login } = useAuth(); // Use the login function from AuthContext
 
-  const onFinish = async (values) => {
-    try {
-      setLoading(true);
-  
-      const response = await axios.post(
-        'http://localhost:8080/users/login',
-        values,  // Ensure 'values' contains { email, password }
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-  
-      localStorage.setItem('userId', response.data.id);
-      localStorage.setItem('userName',response.data.name);
-    
-      message.success('Login successful!');
-      alert('Login successful!');
-      navigate('/');
-    } catch (error) {
-      console.error('Login error:', error);
-      message.error(error.response?.data?.message || 'Login failed. Please try again.');
-      alert('Login failed. Please try again.')
-    } finally {
-      setLoading(false);
-    }
-  };
-  
 
-  return (
-    <div className="login-container">
-      <div className="login-form-section">
-        <div className="login-form-wrapper">
-          <h1 className="login-title">Welcome back</h1>
-          <p className="login-subtitle">Please enter your details</p>
-          
-          <Form
-            name="login"
-            className="login-form"
-            initialValues={{ remember: false }}
-            onFinish={onFinish}
-            layout="vertical"
-          >
-            <Form.Item
-              label="Email address"
-              name="email"
-              rules={[{ required: true, message: 'Please input your email!' }]}
-            >
-              <Input />
-            </Form.Item>
+    const onFinish = async (values) => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/agents/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: values.email, password: values.password }),
+            });
 
-            <Form.Item
-              label="Password"
-              name="password"
-              rules={[{ required: true, message: 'Please input your password!' }]}
-            >
-              <Input.Password />
-            </Form.Item>
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Login failed');
+            }
 
-            <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                className="login-form-button"
-                loading={loading}
-              >
-                Sign in
-              </Button>
-            </Form.Item>
-          </Form>
-          
-          <div className="login-signup">
-            <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="login-image-section">
-        <div className="login-illustration">
-          <img src={loginIllustration} alt="Login illustration" />
-        </div>
-      </div>
-    </div>
-  );
+            const data = await response.json();
+            const { id: agentId, name: agentName, email: agentEmail } = data;
+
+            const agentData = { agentId, agentName, agentEmail };
+            login(agentData); // Update the AuthContext
+            message.success('Login successful!');
+            navigate('/');
+        } catch (error) {
+            console.error('Login error:', error);
+            message.error(error.message || 'Invalid credentials');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Layout style={{ minHeight: '100vh', width: '100%' }}>
+            <Content style={{
+                padding: 0,
+                height: '100vh',
+                width: '100%',
+                background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+            }}>
+                <Row justify="center" align="middle" style={{ height: '100%' }}>
+                    <Col xs={22} sm={16} md={12} lg={8}>
+                        <Card
+                            bordered={false}
+                            style={{
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+                                borderRadius: '12px'
+                            }}
+                        >
+                            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                                <Title level={2} style={{
+                                    marginBottom: '8px',
+                                    color: '#1890ff'
+                                }}>
+                                    <LoginOutlined style={{ marginRight: '12px' }} />
+                                    Welcome Back
+                                </Title>
+                                <Text type="secondary">
+                                    Sign in to access your account
+                                </Text>
+                            </div>
+
+                            <Divider style={{ marginBottom: '24px' }} />
+
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={onFinish}
+                                size="large"
+                            >
+                                <Form.Item
+                                    label="Email"
+                                    name="email"
+                                    rules={[
+                                        { required: true, message: 'Please enter your email' },
+                                        { type: 'email', message: 'Please enter a valid email' }
+                                    ]}
+                                >
+                                    <Input
+                                        prefix={<UserOutlined style={{ color: '#1890ff' }} />}
+                                        placeholder="Your email address"
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    label="Password"
+                                    name="password"
+                                    rules={[{ required: true, message: 'Please enter your password' }]}
+                                >
+                                    <Input.Password
+                                        prefix={<LockOutlined style={{ color: '#1890ff' }} />}
+                                        placeholder="Your password"
+                                    />
+                                </Form.Item>
+
+                                <Form.Item>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        loading={loading}
+                                        block
+                                        size="large"
+                                        style={{
+                                            height: '48px',
+                                            borderRadius: '6px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Log In
+                                    </Button>
+                                </Form.Item>
+
+                                <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                                    <Text type="secondary">
+                                        Don't have an account? <Link to="/signup" style={{ color: '#1890ff' }}>Sign up now</Link>
+                                    </Text>
+                                </div>
+                            </Form>
+                        </Card>
+                    </Col>
+                </Row>
+            </Content>
+        </Layout>
+    );
 };
 
 export default LoginPage;
