@@ -22,7 +22,6 @@ import {
     UserOutlined,
     PhoneOutlined,
     MailOutlined,
-    HomeOutlined,
     PlusOutlined,
     IdcardOutlined
 } from '@ant-design/icons';
@@ -88,11 +87,10 @@ const LeadsPage = () => {
                 fatherName: values.fatherName,
                 adharNumber: values.adharNumber,
                 panNumber: values.panNumber,
-                docType: values.docType,
                 referenceName: values.referenceName,
                 relationToSubject: values.relationToSubject,
                 subjectOccupation: values.subjectOccupation,
-                address: values.address,
+                subjectAddress: values.subjectAddress, // Use subjectAddress from form
                 phoneNumber: values.phoneNumber
             };
 
@@ -202,10 +200,7 @@ const LeadsPage = () => {
                                             <IdcardOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
                                             <Text>Aadhar: {lead.adharNumber.slice(0, 4) + 'xxxx' + lead.adharNumber.slice(-4)}</Text>
                                         </div>
-                                        <div>
-                                            <HomeOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
-                                            <Text ellipsis={{ tooltip: lead.address }}>{lead.address}</Text>
-                                        </div>
+                                        {/* REMOVED ADDRESS DISPLAY */}
                                     </Space>
                                 </div>
 
@@ -248,7 +243,6 @@ const LeadsPage = () => {
                     initialValues={{
                         gender: 'MALE',
                         relationToSubject: 'SISTER',
-                        docType: 'AADHAR'
                     }}
                 >
                     <Title level={4}>Personal Information</Title>
@@ -321,11 +315,11 @@ const LeadsPage = () => {
 
                     <Title level={4} style={{ marginTop: '24px' }}>Address Information</Title>
                     <Form.Item
-                        name="address"
-                        label="Address"
+                        name="subjectAddress"  //Corrected: name is subjectAddress
+                        label="Subject Address"
                         rules={[{ required: true, message: 'Please enter address' }]}
                     >
-                        <Input.TextArea rows={4} placeholder="Enter complete address" />
+                        <Input.TextArea rows={4} placeholder="Enter Subject Address" />
                     </Form.Item>
 
                     <Title level={4} style={{ marginTop: '24px' }}>Identification</Title>
@@ -355,17 +349,6 @@ const LeadsPage = () => {
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Form.Item
-                        name="docType"
-                        label="Document Type"
-                        rules={[{ required: true, message: 'Please select document type' }]}
-                    >
-                        <Select placeholder="Select document type">
-                            <Option value="AADHAR">Aadhar</Option>
-                            <Option value="PAN">PAN</Option>
-                            <Option value="REFERENCE_CALL">Reference Call</Option>
-                        </Select>
-                    </Form.Item>
 
                     <Title level={4} style={{ marginTop: '24px' }}>Occupation Information</Title>
                     <Form.Item
