@@ -17,10 +17,10 @@ import {
     IdcardOutlined,
     CreditCardOutlined,
     PhoneOutlined,
-    SearchOutlined
+    SearchOutlined,
+    UserOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -30,90 +30,66 @@ const CustomInsightPage = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [userId, setUserId] = useState(null);
     const [selectedDocType, setSelectedDocType] = useState(null);
-    const [documentTypes, setDocumentTypes] = useState([]); // State for document types from API
+    const [selectedLead, setSelectedLead] = useState(null);
+    const [leadOptions, setLeadOptions] = useState([]); // State to hold lead options
     const navigate = useNavigate();
+    const { agentId } = useOutletContext();  // Get agentId from context
+    const API_BASE_URL = 'http://localhost:8080';
 
     useEffect(() => {
-        const fetchUserIdAndDocumentTypes = async () => {
+        const fetchLeadOptions = async () => {
             setLoading(true);
-            setError(null);
             try {
-                // Fetch userId from local storage
-                const storedUserId = localStorage.getItem('userId');
-                if (storedUserId) {
-                    setUserId(storedUserId);
-                } else {
-                    setError('User ID not found. Please log in again.');
+                const response = await fetch(`${API_BASE_URL}/leads/agent/${agentId}/name-email`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
-                // Fetch document types from API
-                const response = await axios.get('http://localhost:8080/documents/types');
-                const apiDocumentTypes = Object.entries(response.data).map(([value, label]) => ({
-                    value,
-                    label,
-                }));
-                setDocumentTypes(apiDocumentTypes);
-               // localStorage.getItem("documentType",apiDocumentTypes)
-                console.log("Document Types from API:", apiDocumentTypes);
-
+                const data = await response.json();
+                setLeadOptions(data);
             } catch (error) {
-                console.error('Error fetching user ID or document types:', error);
-                setError('Failed to load data. Please try again.');
+                console.error('Error fetching lead options:', error);
+                setError('Failed to load lead options. Please try again.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchUserIdAndDocumentTypes();
-    }, []);
+        fetchLeadOptions();
+    }, [agentId]);  // Dependency on agentId
+
+    // Hardcoded document types (will be replaced with API data later)
+    const documentTypes = [
+        { value: 'AADHAR', label: 'Aadhar Card' },
+        { value: 'PAN', label: 'PAN Card' },
+        { value: 'REFERENCE_CALL', label: 'Reference Call' },
+    ];
 
     // Prepare document options with icons and descriptions
     const prepareDocumentOptions = () => {
         return documentTypes.map(docType => {
             let iconComponent = <FileSearchOutlined />;
+            let description = 'Document Verification Insight'; // Default description
+            let color = '#1890ff'; // Default Color
+
             switch (docType.value) {
                 case 'AADHAR':
                     iconComponent = <IdcardOutlined />;
-                    break;
-                case 'PAN':
-                    iconComponent = <CreditCardOutlined />;
-                    break;
-                case 'REFERENCE_CALL':
-                    iconComponent = <PhoneOutlined />;
-                    break;
-                default:
-                    iconComponent = <FileSearchOutlined />;
-                    break;
-            }
-
-            let description = 'Document Verification Insight'; //Default description
-
-            switch (docType.value) {
-                case 'AADHAR':
                     description = 'Government-issued identification with biometric details';
-                    break;
-                case 'PAN':
-                    description = 'Permanent Account Number for tax identification';
-                    break;
-                case 'REFERENCE_CALL':
-                    description = 'Verification call with provided references';
-                    break;
-
-            }
-            let color = '#1890ff'; //Default Color
-            switch (docType.value) {
-                case 'AADHAR':
                     color = '#1890ff';
                     break;
                 case 'PAN':
+                    iconComponent = <CreditCardOutlined />;
+                    description = 'Permanent Account Number for tax identification';
                     color = '#52c41a';
                     break;
                 case 'REFERENCE_CALL':
+                    iconComponent = <PhoneOutlined />;
+                    description = 'Verification call with provided references';
                     color = '#722ed1';
                     break;
-
+                default:
+                    break;
             }
 
             return {
@@ -123,7 +99,6 @@ const CustomInsightPage = () => {
                 color: color,
                 description: description,
             };
-
         });
     };
 
@@ -131,28 +106,23 @@ const CustomInsightPage = () => {
         setSelectedDocType(value);
     };
 
+    const handleLeadChange = (value) => {
+        setSelectedLead(value);
+    };
+
     const onFinish = async (values) => {
         setLoading(true);
         setError(null);
 
         try {
-            if (!userId) {
-                setError('User ID not found. Please log in again.');
-                return;
-            }
-
-             // Store the selected documentType in localStorage
-            
-             localStorage.setItem('documentType', values.documentType); //need to store doctype before navigating to next page
-            
-             // Build the URL based on the selected document type and userId.
+            // Build the URL based on the selected document type and lead ID.
             let insightURL = '';
             switch (values.documentType) {
                 case 'REFERENCE_CALL':
-                    insightURL = `/audio/${userId}`;
+                    insightURL = `/audio/${values.leadId}`;
                     break;
                 default:
-                    insightURL = `/documents/${userId}/${values.documentType}`; //the url mentioned here was wrong values.doctype was missing
+                    insightURL = `/document/${values.leadId}`;
                     break;
             }
 
@@ -173,8 +143,11 @@ const CustomInsightPage = () => {
         return docOptions.find(doc => doc.value === selectedDocType);
     };
 
+    const getSelectedLeadInfo = () => {
+        return leadOptions.find(lead => lead.id === selectedLead);
+    };
+
     const docOptions = prepareDocumentOptions();
-    console.log("Prepared Doc options:", docOptions);
 
     return (
         <Layout style={{ background: '#f0f2f5', minHeight: '100vh', padding: '24px' }}>
@@ -198,8 +171,7 @@ const CustomInsightPage = () => {
                                     Custom Insight Search
                                 </Title>
                                 <Paragraph type="secondary">
-                                    Select the document type to fetch specific insights for the current user.
-                                    Each document provides different verification insights.
+                                    Select a lead and document type to fetch specific verification insights.
                                 </Paragraph>
                             </div>
 
@@ -220,6 +192,64 @@ const CustomInsightPage = () => {
                                 layout="vertical"
                                 onFinish={onFinish}
                             >
+                                {/* Lead Selection */}
+                                <Form.Item
+                                    name="leadId"
+                                    label={<Text strong>Select Lead</Text>}
+                                    rules={[{ required: true, message: 'Please select a lead' }]}
+                                >
+                                    <Select
+                                        placeholder="Select a lead"
+                                        size="large"
+                                        onChange={handleLeadChange}
+                                        style={{ width: '100%' }}
+                                        dropdownStyle={{ padding: '8px' }}
+                                    >
+                                        {leadOptions.map(lead => (
+                                            <Option key={lead.id} value={lead.id}>
+                                                <Space>
+                                                    <UserOutlined style={{ color: '#1890ff' }} />
+                                                    {lead.name} - {lead.email}
+                                                </Space>
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+
+                                {selectedLead && (
+                                    <Card
+                                        size="small"
+                                        style={{
+                                            marginBottom: '24px',
+                                            backgroundColor: '#f9fafc',
+                                            borderLeft: '3px solid #1890ff'
+                                        }}
+                                    >
+                                        <Space align="start">
+                                            <div style={{
+                                                color: 'white',
+                                                backgroundColor: '#1890ff',
+                                                borderRadius: '50%',
+                                                width: '32px',
+                                                height: '32px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px'
+                                            }}>
+                                                <UserOutlined />
+                                            </div>
+                                            <div>
+                                                <Text strong>{getSelectedLeadInfo()?.name}</Text>
+                                                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                                                    Email: {getSelectedLeadInfo()?.email}
+                                                </Paragraph>
+                                            </div>
+                                        </Space>
+                                    </Card>
+                                )}
+
+                                {/* Document Type Selection */}
                                 <Form.Item
                                     name="documentType"
                                     label={<Text strong>Select Document Type</Text>}
@@ -283,9 +313,9 @@ const CustomInsightPage = () => {
                                         type="primary"
                                         htmlType="submit"
                                         loading={loading}
-                                        disabled={!userId}
                                         icon={<SearchOutlined />}
                                         size="large"
+                                        disabled={!selectedLead || !selectedDocType}
                                         style={{
                                             width: '100%',
                                             height: '45px',
@@ -296,16 +326,8 @@ const CustomInsightPage = () => {
                                     </Button>
                                 </Form.Item>
                             </Form>
-
-                            {!userId && (
-                                <Alert
-                                    message="Authentication Required"
-                                    description="Please log in to access custom insights."
-                                    type="warning"
-                                    showIcon
-                                />
-                            )}
-                        </Space>)}
+                        </Space>
+                    )}
                 </Card>
             </Content>
         </Layout>
@@ -313,4 +335,3 @@ const CustomInsightPage = () => {
 };
 
 export default CustomInsightPage;
-

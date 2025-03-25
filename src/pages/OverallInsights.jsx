@@ -1,3 +1,4 @@
+// OverallInsights.jsx
 import React, { useState, useEffect } from 'react';
 import { Card, Typography, Spin, Button, Tag, Space, Layout, message } from 'antd';
 import {
@@ -7,37 +8,54 @@ import {
     CreditCardOutlined,
     PhoneOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom'; // Import useOutletContext
 
 const { Title, Text, Paragraph } = Typography;
 const { Header, Content, Footer } = Layout;
 
-const OverallInsights = () => {
+const OverallInsights = () => { // Remove onLeadNameChange from props definition
     const [insights, setInsights] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [leadName, setLeadName] = useState("Loading...");
     const navigate = useNavigate();
+    const { leadId } = useParams();
+    const API_BASE_URL = 'http://localhost:8080';
+    const { onLeadNameChange } = useOutletContext(); // Access it from context
 
     useEffect(() => {
-        const fetchInsights = async () => {
-            setLoading(true);
+        const fetchLeadName = async () => {
             try {
-                const storedUserId = localStorage.getItem('userId');
-                const response = await fetch(`http://localhost:8080/users/${storedUserId}`); // Replace with your actual API endpoint
+                const response = await fetch(`${API_BASE_URL}/leads/${leadId}/name`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+                const name = await response.text(); // Assuming the API returns plain text name
+                setLeadName(name);
+                onLeadNameChange(name); // Update MainLayout's state
+            } catch (error) {
+                console.error('Error fetching lead name:', error);
+                setLeadName("Error Loading");
+            }
+        };
+
+        const fetchInsights = async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/leads/${leadId}/insights`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 // Process the insights with additional UI-specific properties
                 const processedInsights = data.map(item => {
-                    // Generate a unique ID since it's not in the source data
-                    const id = `${item.doctype}-${Math.random().toString(36).substr(2, 9)}`;
-
-                    // Calculate risk level based on score (if available)
-                    let riskLevel = 'pending';
+                    const id = `${item.doctype}-${Math.random().toString(36).substr(2, 9)}`;  // Generate a unique ID
+                    let riskLevel = 'pending'; // Calculate risk level based on score (if available)
                     if (item.status !== 'Pending' && item.score !== null) {
-                        if (item.score < 5.0) riskLevel = 'low';  //Low Risk If less than 5
-                        else riskLevel = 'medium';               // Medium Risk if greater or equal to 5
+                        if (item.score < 5.0) riskLevel = 'low';
+                        else riskLevel = 'medium';
                     }
 
                     return {
@@ -48,30 +66,31 @@ const OverallInsights = () => {
                 });
 
                 setInsights(processedInsights);
+
             } catch (error) {
-                console.error('Error fetching insights data:', error);
-                message.error('Failed to fetch insights. Please try again later.');
+                console.error('Error fetching/processing insights data:', error);
+                message.error('Failed to load insights. Please try again later.');
             } finally {
                 setLoading(false);
             }
         };
 
+        fetchLeadName();
         fetchInsights();
-    }, []);
+
+    }, [leadId, onLeadNameChange]);
 
     const getStatusColor = (status) => {
         switch (status) {
             case 'Completed': return 'green';
             case 'Uploaded': return 'green';
-            case 'Pending': return 'gray';
-            case 'Failed': return 'red';
             default: return 'blue';
         }
     };
 
     const getRiskColor = (riskLevel) => {
         switch (riskLevel) {
-            case 'medium': return 'orange';  //Medium Risk is back
+            case 'medium': return 'orange';  // Medium Risk
             case 'low': return 'green';
             case 'pending': return 'gray';
             default: return 'default';
@@ -80,7 +99,7 @@ const OverallInsights = () => {
 
     const getRiskLabel = (riskLevel) => {
         switch (riskLevel) {
-            case 'medium': return 'Needs review';   //Medium Risk is back
+            case 'medium': return 'Needs review';
             case 'low': return 'Low risk';
             case 'pending': return 'Not uploaded';
             default: return 'Unknown';
@@ -100,8 +119,6 @@ const OverallInsights = () => {
         if (!dateString) return 'Not available';
 
         try {
-            // Simple formatting for the date string you provided
-            //return dateString;
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -111,8 +128,6 @@ const OverallInsights = () => {
                 minute: 'numeric',
                 second: 'numeric'
             });
-
-
         } catch (error) {
             console.error('Invalid date:', dateString);
             return 'Invalid date';
@@ -120,19 +135,16 @@ const OverallInsights = () => {
     };
 
     const handleViewDetails = (id, doctype, status) => {
-        const userId = localStorage.getItem('userId'); // Get userId from localStorage
         if (status === 'Pending') {
-            navigate('/upload'); // Navigate to UploadPage.jsx
+            navigate('/upload'); // Navigate to UploadPage
         } else {
             // Redirecting based on document type
             switch (doctype) {
                 case 'REFERENCE_CALL':
-                    console.log(`Navigating to Audio, ID: ${id}`);
-                    navigate(`/audio/${userId}`);
+                    navigate(`/audio/${leadId}`);
                     break;
                 default:
-                    console.log(`Navigating to Document, ID: ${userId} Doctype: ${doctype}`);
-                    navigate(`/documents/${userId}/${doctype}`);  // Correctly pass doctype
+                    navigate(`/document/${leadId}/${doctype.toLowerCase()}`);
                     break;
             }
         }
@@ -140,7 +152,9 @@ const OverallInsights = () => {
 
     const renderInsightSummary = (insight) => {
         if (insight.status === 'Pending') {
-            return "This document has not been uploaded yet. Please upload to proceed with verification.";
+            return insight.doctype === 'REFERENCE_CALL'
+                ? "Reference call has not been uploaded yet. Please upload to proceed with verification."
+                : "This document has not been uploaded yet. Please upload to proceed with verification.";
         }
 
         if (insight.doctype === 'REFERENCE_CALL') {
@@ -185,7 +199,7 @@ const OverallInsights = () => {
                             <Tag color={getRiskColor(insight.riskLevel)}>
                                 {getRiskLabel(insight.riskLevel)}
                             </Tag>
-                            {insight.score !== null && (
+                            {insight.score !== null && insight.status !== 'Pending' && (
                                 <Tag color="blue">
                                     Score: {insight.score.toFixed(1)}
                                 </Tag>
@@ -200,7 +214,6 @@ const OverallInsights = () => {
                         icon={<ArrowRightOutlined />}
                         onClick={() => handleViewDetails(insight.id, insight.doctype, insight.status)}
                         style={{ marginTop: '16px' }}
-
                     >
                         {insight.status === 'Pending' ? 'Upload Document' : 'View Detailed Insights'}
                     </Button>
@@ -211,10 +224,12 @@ const OverallInsights = () => {
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
-            {/* Header without profile section */}
+            {/* Header */}
             <Header style={{ background: '#fff', padding: '0 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' }}>
-                    <Title level={3} style={{ margin: 0 }}>Risk Assessment Dashboard</Title>
+                    <Title level={3} style={{ margin: 0 }}>
+                        Lead Assessment: <span style={{ color: '#1890ff' }}>{leadName}</span>
+                    </Title>
                 </div>
             </Header>
 
@@ -230,9 +245,12 @@ const OverallInsights = () => {
                 {/* Dashboard content */}
                 {!loading && (
                     <>
-                        {/* <div style={{ marginBottom: '24px' }}>
+                        <div style={{ marginBottom: '24px' }}>
                             <Title level={4}>Document Verification Status</Title>
-                        </div> */}
+                            <Text type="secondary">
+                                Review verification status for all required documents and reference calls.
+                            </Text>
+                        </div>
 
                         {insights.length > 0 ? (
                             <div>
@@ -240,7 +258,7 @@ const OverallInsights = () => {
                             </div>
                         ) : (
                             <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                                <Text type="secondary">No document insights available at this time.</Text>
+                                <Text type="secondary">No document insights available for this lead.</Text>
                             </div>
                         )}
                     </>
