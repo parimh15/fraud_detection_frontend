@@ -118,16 +118,23 @@ const CustomInsightPage = () => {
             // Build the URL based on the selected document type and lead ID.
             let insightURL = '';
             switch (values.documentType) {
-                case 'REFERENCE_CALL':
-                    insightURL = `/audio/${values.leadId}`;
+                case 'REFERENCE_CALL':{
+                    const response = await fetch(`${API_BASE_URL}/audio/recentaudio/${values.leadId}`);
+                    const latestAudioId = await response.text();
+                    insightURL = `/audio/${latestAudioId}`; // Relative path for same SPA
                     break;
-                default:
-                    insightURL = `/document/${values.leadId}`;
+                }
+                
+                default:{
+                    const response1 = await fetch(`${API_BASE_URL}/documents/recentdocument/${values.leadId}`);
+                    const latestDocId = await response1.text();
+                    insightURL = `/document/${latestDocId}`; // Relative path for same SPA
                     break;
+                }
             }
 
             message.loading({ content: 'Fetching insights...', key: 'fetchInsight' });
-            navigate(insightURL);
+            navigate(insightURL); // Correct way to navigate
 
         } catch (error) {
             console.error("Error fetching custom insight:", error);
