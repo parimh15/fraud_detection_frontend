@@ -1,193 +1,408 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
-  Upload,
-  Button,
-  message,
-  Progress,
-  Card,
-  Typography,
-  Alert,
-  Space,
-  Select,
-} from "antd";
-import { UploadOutlined, InboxOutlined, CheckCircleOutlined } from "@ant-design/icons";
-import axios from "axios";
-import FileTypeSelect from "./FileTypeSelect.jsx"; 
-import "./Upload.css";
+    Layout,
+    Card,
+    Typography,
+    Form,
+    Select,
+    Upload,
+    Checkbox,
+    Button,
+    message,
+    Spin,
+    Alert,
+    Space,
+    Divider,
+    Modal
+} from 'antd';
+import {
+    FileAddOutlined,
+    UploadOutlined,
+    UserOutlined,
+    InboxOutlined,
+    CheckCircleOutlined
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Adjust the import path as needed
 
-const { Dragger } = Upload;
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
+const { Dragger } = Upload;
+const { Content } = Layout;
+
 const UploadPage = () => {
-  const [fileType, setFileType] = useState("REFERENCE_CALL");
-  const [userId, setUserId] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [success, setSuccess] = useState(false);
-  const [fileList, setFileList] = useState([]);
-  const [error, setError] = useState(null);
-  // Fetch userId from localStorage
-  useEffect(() => {
-    const storedUserId = localStorage.getItem("userId");
-    if (storedUserId) {
-      setUserId(storedUserId);
-    } else {
-      message.error("User ID not found. Please log in.");
-    }
-  }, []);
- 
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [selectedLead, setSelectedLead] = useState(null);
+    const [leadOptions, setLeadOptions] = useState([]);
+    const [selectedDocTypes, setSelectedDocTypes] = useState([]);
+    const [fileList, setFileList] = useState([]);
+    const [uploadResults, setUploadResults] = useState(null);
+    const [isUploadSuccessful, setIsUploadSuccessful] = useState(false);
+    const navigate = useNavigate();
+    
+    // Use useAuth hook to get agentId
+    const { agent } = useAuth();
+    const agentId = agent?.agentId;
 
-  // Handle file type selection manually
-  const handleFileTypeChange = (value) => {
-    setFileType(value);
-  
-  };
+    const API_BASE_URL = 'http://localhost:8080';
 
-  // Validate file before upload
-const beforeUpload = (file) => {
-  if (file.size / 1024 / 1024 > 20) {
-    message.error("File must be smaller than 20MB!");
-    return Upload.LIST_IGNORE;
-  }
-  setError(null);
-  setSuccess(false);
-  setProgress(0);
-  return false; // Prevent auto upload, as we will handle it manually
-};
-
-  const handleUpload = async () => {
-    if (!userId) {
-      message.error("User ID not found. Please log in.");
-      return;
-    }
-    if (fileList.length === 0) {
-      message.warning("Please select a file to upload.");
-      return;
-    }
-    // Use originFileObj to get the actual file
-    const file = fileList[0].originFileObj;
-    if (!file) {
-      message.error("Invalid file selection.");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("file", file);  //Sending the MP3 file as-is
-    formData.append("userId", userId);
-    formData.append("documentType", fileType); 
-    const endpoint =
-      fileType === "REFERENCE_CALL"
-        ? "http://localhost:8080/audio/update-audio"
-        : "http://localhost:8080/documents/update-document";
-    setUploading(true);
-    try {
-      await axios.put(endpoint, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (progressEvent) => {
-          setProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+    // Document types with more comprehensive options
+    const documentTypes = [
+        { 
+            value: 'Reference Call', 
+            label: 'Reference Call', 
+            description: 'Recorded conversation between lead and agent' 
         },
-      });
-      setSuccess(true);
-      setFileList([]);
-      message.success("File uploaded successfully.");
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setError("Upload failed. Please try again.");
-      message.error("Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
+        { 
+            value: 'Aadhaar', 
+            label: 'Aadhaar Card', 
+            description: 'Government-issued identification with biometric details' 
+        },
+        { 
+            value: 'Pan', 
+            label: 'PAN Card', 
+            description: 'Permanent Account Number for tax identification' 
+        }
+    ];
 
-  const draggerProps = {
-    name: "file",
-    multiple: false,
-    fileList,
-    beforeUpload,
-    onChange(info) {
-      setFileList(info.fileList.map(file => ({
-        ...file,
-        originFileObj: file.originFileObj || file, // :white_check_mark: Ensure correct file object
-      })));
-    },
-    onRemove() {
-      setFileList([]);
-      setSuccess(false);
-      setProgress(0);
-      setError(null);
-    },
-    showUploadList: { showRemoveIcon: true, showPreviewIcon: false },
-  };
-  return (
-    <div className="upload-page-container">
-      <Card className="upload-card">
-        <Title level={2}>File Upload</Title>
-        <Text type="secondary" className="upload-subtitle">
-          Upload your files securely to our platform
-        </Text>
-        <Space direction="vertical" size="large" className="upload-space">
-          {/* File Type Selection */}
-          {/* <div className="file-type-selector">
-            <Text strong>File Type:</Text>
-            <Select value={fileType} onChange={handleFileTypeChange} className="file-type-select" disabled={fileList.length > 0}>
-              <Option value="AADHAR">AADHAAR</Option>
-              <Option value="PAN">PAN</Option>
-              <Option value="REFERENCE_CALL">REFERENCE_CALL</Option>
-            </Select>
-          </div> */}
-          <div className="file-type-selector">
-            <Text strong>File Type:</Text>
-            <FileTypeSelect fileType={fileType} handleFileTypeChange={handleFileTypeChange} fileList={fileList} />
-          </div>
-          {/* Drag & Drop Upload Area */}
-          <Dragger {...draggerProps} className="upload-dragger">
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">Click or drag file to this area to upload</p>
-            <p className="ant-upload-hint">
-              {fileType === "REFERENCE_CALL" ?  "Supports MP3, WAV." : "Supports JPG, PNG" }
-            </p>
-          </Dragger>
-          {/* Upload Button */}
-          <Button
-            type="primary"
-            onClick={handleUpload}
-            disabled={fileList.length === 0 || uploading}
-            loading={uploading}
-            icon={<UploadOutlined />}
-            className="upload-button"
-          >
-            {uploading ? "Uploading..." : "Start Upload"}
-          </Button>
-          {/* Progress Bar */}
-          {(uploading || success) && (
-            <Progress percent={progress} status={success ? "success" : "active"} className="upload-progress" /> 
+    useEffect(() => {
+        // Only fetch lead options if agentId is available
+        if (agentId) {
+            const fetchLeadOptions = async () => {
+                setLoading(true);
+                try {
+                    const response = await fetch(`${API_BASE_URL}/leads/agent/${agentId}/name-email`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    setLeadOptions(data);
+                } catch (error) {
+                    console.error('Error fetching lead options:', error);
+                    setError('Failed to load lead options. Please try again.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            fetchLeadOptions();
+        }
+    }, [agentId]);
+
+    const handleLeadChange = (value) => {
+        setSelectedLead(value);
+    };
+
+    const handleDocTypeChange = (checkedValues) => {
+        setSelectedDocTypes(checkedValues);
+    };
+
+    const handleFileUpload = ({ fileList }) => {
+        setFileList(fileList);
+        // Reset upload results when files change
+        setUploadResults(null);
+    };
+
+    const onFinish = async (values) => {
+        if (!values.leadId || selectedDocTypes.length === 0 || fileList.length === 0) {
+            message.error('Please select a lead, document types, and upload files.');
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        const formData = new FormData();
+        formData.append('agentId', agentId);
+        formData.append('leadId', values.leadId);
+        
+        // Append document types as comma-separated string
+        formData.append('fileTypes', selectedDocTypes.join(','));
+        
+        // Append files
+        fileList.forEach((file) => {
+            formData.append('files', file.originFileObj);
+        });
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/files/upload-multiple`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            setUploadResults(result);
             
-          )}
-          {/* Success Message */}
-          {success && (
-            <Alert
-              message="Upload Successful!"
-              description="Your file has been uploaded successfully."
-              type="success"
-              showIcon
-              icon={<CheckCircleOutlined />}
-              className="upload-success"
-            />
-          )}
-          {/* Error Message */}
-          {error && (
-            <Alert
-              message="Upload Failed"
-              description={error}
-              type="error"
-              showIcon
-              className="upload-error"
-            />
-          )}
-        </Space>
-      </Card>
-    </div>
-  );
+            // Set upload successful state
+            setIsUploadSuccessful(true);
+
+            // Optional: Reset form after successful upload
+            form.resetFields();
+            setSelectedLead(null);
+            setSelectedDocTypes([]);
+            setFileList([]);
+        } catch (error) {
+            console.error("Document upload error:", error);
+            setError("Failed to upload documents. Please try again.");
+            message.error('Document upload failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUploadSuccessClose = () => {
+        setIsUploadSuccessful(false);
+    };
+
+    const getSelectedLeadInfo = () => {
+        return leadOptions.find(lead => lead.id === selectedLead);
+    };
+
+    // If no agent is authenticated, show login prompt
+    if (!agent) {
+        return (
+            <Layout style={{ background: '#f0f2f5', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Alert 
+                    message="Authentication Required" 
+                    description="Please log in to access this page." 
+                    type="warning" 
+                    showIcon
+                    style={{ maxWidth: '400px' }}
+                />
+            </Layout>
+        );
+    }
+
+    return (
+        <Layout style={{ background: '#f0f2f5', minHeight: '100vh', padding: '24px' }}>
+            <Content style={{ maxWidth: '800px', margin: '0 auto' }}>
+                <Card
+                    bordered={false}
+                    style={{
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                    }}
+                >
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <Spin size="large" tip="Processing..." />
+                        </div>
+                    ) : (
+                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                            <div>
+                                <Title level={3} style={{ marginBottom: '8px' }}>
+                                    <FileAddOutlined style={{ marginRight: '12px', color: '#1890ff' }} />
+                                    Document Upload
+                                </Title>
+                                <Paragraph type="secondary">
+                                    Select a lead, choose document types, and upload relevant documents.
+                                </Paragraph>
+                            </div>
+
+                            <Divider style={{ margin: '8px 0' }} />
+
+                            {error && (
+                                <Alert
+                                    message="Error"
+                                    description={error}
+                                    type="error"
+                                    showIcon
+                                    style={{ marginBottom: '16px' }}
+                                />
+                            )}
+
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={onFinish}
+                            >
+                                {/* Lead Selection */}
+                                <Form.Item
+                                    name="leadId"
+                                    label={<Text strong>Select Lead</Text>}
+                                    rules={[{ required: true, message: 'Please select a lead' }]}
+                                >
+                                    <Select
+                                        placeholder="Select a lead"
+                                        size="large"
+                                        onChange={handleLeadChange}
+                                        style={{ width: '100%' }}
+                                    >
+                                        {leadOptions.map(lead => (
+                                            <Option key={lead.id} value={lead.id}>
+                                                <Space>
+                                                    <UserOutlined style={{ color: '#1890ff' }} />
+                                                    {lead.name} - {lead.email}
+                                                </Space>
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+
+                                {selectedLead && (
+                                    <Card
+                                        size="small"
+                                        style={{
+                                            marginBottom: '24px',
+                                            backgroundColor: '#f9fafc',
+                                            borderLeft: '3px solid #1890ff'
+                                        }}
+                                    >
+                                        <Space align="start">
+                                            <div style={{
+                                                color: 'white',
+                                                backgroundColor: '#1890ff',
+                                                borderRadius: '50%',
+                                                width: '32px',
+                                                height: '32px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px'
+                                            }}>
+                                                <UserOutlined />
+                                            </div>
+                                            <div>
+                                                <Text strong>{getSelectedLeadInfo()?.name}</Text>
+                                                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                                                    Email: {getSelectedLeadInfo()?.email}
+                                                </Paragraph>
+                                            </div>
+                                        </Space>
+                                    </Card>
+                                )}
+
+                                {/* Document Type Selection with Checkboxes */}
+                                <Form.Item
+                                    name="fileTypes"
+                                    label={<Text strong>Select Document Types</Text>}
+                                    rules={[{ required: true, message: 'Please select at least one document type' }]}
+                                >
+                                    <Checkbox.Group 
+                                        onChange={handleDocTypeChange}
+                                        style={{ 
+                                            display: 'grid', 
+                                            gridTemplateColumns: 'repeat(3, 1fr)', 
+                                            gap: '12px' 
+                                        }}
+                                    >
+                                        {documentTypes.map(doc => (
+                                            <Checkbox 
+                                                key={doc.value} 
+                                                value={doc.value}
+                                                style={{ 
+                                                    padding: '8px', 
+                                                    border: '1px solid #f0f0f0', 
+                                                    borderRadius: '4px' 
+                                                }}
+                                            >
+                                                <Space direction="vertical" size="small">
+                                                    <Text strong>{doc.label}</Text>
+                                                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                        {doc.description}
+                                                    </Text>
+                                                </Space>
+                                            </Checkbox>
+                                        ))}
+                                    </Checkbox.Group>
+                                </Form.Item>
+
+                                {/* File Upload */}
+                                <Form.Item
+                                    name="documents"
+                                    label={<Text strong>Upload Documents</Text>}
+                                    rules={[{ required: true, message: 'Please upload at least one document' }]}
+                                >
+                                    <Dragger
+                                        multiple
+                                        beforeUpload={() => false} // Prevent auto upload
+                                        onChange={handleFileUpload}
+                                        fileList={fileList}
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        style={{ 
+                                            padding: '20px', 
+                                            background: '#fafafa', 
+                                            border: '2px dashed #1890ff' 
+                                        }}
+                                    >
+                                        <p className="ant-upload-drag-icon">
+                                            <InboxOutlined style={{ color: '#1890ff', fontSize: '48px' }} />
+                                        </p>
+                                        <p className="ant-upload-text">
+                                            Click or drag files to this area to upload
+                                        </p>
+                                        <p className="ant-upload-hint">
+                                            Support for PDF, JPG, JPEG, and PNG files
+                                        </p>
+                                    </Dragger>
+                                </Form.Item>
+
+                                {/* Upload Button */}
+                                <Form.Item>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        loading={loading}
+                                        icon={<UploadOutlined />}
+                                        size="large"
+                                        disabled={!selectedLead || selectedDocTypes.length === 0 || fileList.length === 0}
+                                        style={{
+                                            width: '100%',
+                                            height: '45px',
+                                            borderRadius: '4px'
+                                        }}
+                                    >
+                                        Upload Documents
+                                    </Button>
+                                </Form.Item>
+                            </Form>
+                        </Space>
+                    )}
+                </Card>
+            </Content>
+
+            {/* Upload Success Modal */}
+            <Modal
+                title={null}
+                open={isUploadSuccessful}
+                onCancel={handleUploadSuccessClose}
+                footer={[
+                    <Button key="close" onClick={handleUploadSuccessClose}>
+                        Close
+                    </Button>
+                ]}
+                centered
+            >
+                <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    padding: '20px' 
+                }}>
+                    <CheckCircleOutlined 
+                        style={{ 
+                            fontSize: '72px', 
+                            color: '#52c41a', 
+                            marginBottom: '20px' 
+                        }} 
+                    />
+                    <Title level={4} style={{ marginBottom: '16px' }}>
+                        Upload Successful
+                    </Title>
+                    <Paragraph style={{ textAlign: 'center', marginBottom: '20px' }}>
+                        Your documents have been uploaded successfully. 
+                        {/* {uploadResults && ` ${uploadResults.filesUploaded} file(s) were processed.`} */}
+                    </Paragraph>
+                </div>
+            </Modal>
+        </Layout>
+    );
 };
-export default UploadPage; 
+
+export default UploadPage;

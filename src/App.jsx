@@ -52,7 +52,7 @@ function AppRoutes() {
                 <Route path="upload" element={<UploadPage />} />
                 <Route path="custom-insight" element={<CustomInsightPage />} />
                 <Route path="risk-assessment/:leadId" element={<OverallInsights />} />
-                <Route path="document/:id" element={<DocumentInsight />} />
+                <Route path="documents/:id" element={<DocumentInsight />} />
                 <Route path="audio/:id" element={<AudioInsight />} />
             </Route>
 

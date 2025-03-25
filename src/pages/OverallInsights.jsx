@@ -108,9 +108,9 @@ const OverallInsights = () => { // Remove onLeadNameChange from props definition
 
     const getDocumentIcon = (doctype) => {
         switch (doctype) {
-            case 'AADHAR': return <IdcardOutlined style={{ fontSize: '20px' }} />;
-            case 'PAN': return <CreditCardOutlined style={{ fontSize: '20px' }} />;
-            case 'REFERENCE_CALL': return <PhoneOutlined style={{ fontSize: '20px' }} />;
+            case 'Aadhaar': return <IdcardOutlined style={{ fontSize: '20px' }} />;
+            case 'Pan': return <CreditCardOutlined style={{ fontSize: '20px' }} />;
+            case 'Reference Call': return <PhoneOutlined style={{ fontSize: '20px' }} />;
             default: return <FileTextOutlined style={{ fontSize: '20px' }} />;
         }
     };
@@ -140,7 +140,7 @@ const OverallInsights = () => { // Remove onLeadNameChange from props definition
         } else {
             // Redirecting based on document type
             switch (doctype) {
-                case 'REFERENCE_CALL':
+                case 'Reference Call':
                     navigate(`/audio/${leadId}`);
                     break;
                 default:
@@ -152,12 +152,12 @@ const OverallInsights = () => { // Remove onLeadNameChange from props definition
 
     const renderInsightSummary = (insight) => {
         if (insight.status === 'Pending') {
-            return insight.doctype === 'REFERENCE_CALL'
+            return insight.doctype === 'Reference Call'
                 ? "Reference call has not been uploaded yet. Please upload to proceed with verification."
                 : "This document has not been uploaded yet. Please upload to proceed with verification.";
         }
 
-        if (insight.doctype === 'REFERENCE_CALL') {
+        if (insight.doctype === 'Reference Call') {
             return `Reference call verification completed with a score of ${insight.score}. ${insight.description}`;
         }
 
