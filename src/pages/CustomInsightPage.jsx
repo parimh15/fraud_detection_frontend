@@ -118,14 +118,96 @@ const CustomInsightPage = () => {
             // Build the URL based on the selected document type and lead ID.
             let insightURL = '';
             switch (values.documentType) {
-                case 'REFERENCE_CALL':{
+                case 'REFERENCE_CALL': {
                     const response = await fetch(`${API_BASE_URL}/audio/recentaudio/${values.leadId}`);
                     const latestAudioId = await response.text();
                     insightURL = `/audio/${latestAudioId}`; // Relative path for same SPA
                     break;
                 }
-                
-                default:{
+                case 'AADHAR': {
+                    const response = await fetch(`${API_BASE_URL}/documents/recentaadhaar/${values.leadId}?limit=1`);
+
+                    if (response.status === 204) {
+                        setError("No Aadhaar document found for this lead.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (jsonError) {
+                        console.error("Error parsing JSON:", jsonError);
+                        setError("Error parsing server response.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Check if the data is an array and has at least one element
+                    if (Array.isArray(data) && data.length > 0) {
+                        const latestAadharId = data[0]; // Extract the ID from the array
+
+                        if (latestAadharId && typeof latestAadharId === 'string' && latestAadharId.trim() !== '') {
+                            insightURL = `/aadhaar-insights/${latestAadharId}`;
+                        } else {
+                            setError("Invalid or missing Aadhaar document ID.");
+                            setLoading(false);
+                            return;
+                        }
+                    } else {
+                        setError("No Aadhaar document ID returned from the server.");
+                        setLoading(false);
+                        return;
+                    }
+                    break;
+                }
+                case 'PAN': {
+                    const response = await fetch(`${API_BASE_URL}/documents/recentpan/${values.leadId}?limit=1`);
+
+                    if (response.status === 204) {
+                        setError("No PAN document found for this lead.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    let data;
+                    try {
+                        data = await response.json(); // Parse the JSON
+                    } catch (jsonError) {
+                        console.error("Error parsing JSON:", jsonError);
+                        setError("Error parsing server response.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Check if the data is an array and has at least one element
+                    if (Array.isArray(data) && data.length > 0) {
+                        const latestPanId = data[0]; // Extract the ID from the array
+
+                        if (latestPanId && typeof latestPanId === 'string' && latestPanId.trim() !== '') {
+                            insightURL = `/pan-insights/${latestPanId}`; // Relative path for same SPA
+                        } else {
+                            setError("Invalid or missing PAN document ID.");
+                            setLoading(false);
+                            return;
+                        }
+                    } else {
+                        setError("No PAN document ID returned from the server.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    break;
+                }
+                default: {
                     const response1 = await fetch(`${API_BASE_URL}/documents/recentdocument/${values.leadId}`);
                     const latestDocId = await response1.text();
                     insightURL = `/document/${latestDocId}`; // Relative path for same SPA
