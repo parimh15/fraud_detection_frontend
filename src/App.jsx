@@ -13,6 +13,8 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import { AuthProvider, useAuth } from './context/AuthContext'; // Import AuthProvider
 
+import FileRecordsDashboard from './pages/FileRecordsDashBoard';
+
 function App() {
     return (
         <AuthProvider>
@@ -49,10 +51,11 @@ function AppRoutes() {
             >
                 <Route index element={<Home />} />
                 <Route path="leads" element={<LeadsPage />} />
-                <Route path="upload" element={<UploadPage />} />
+                <Route path="upload" element={<UploadPage />} /> 
+                <Route path="/document-trail" element={<FileRecordsDashboard />} />
                 <Route path="custom-insight" element={<CustomInsightPage />} />
                 <Route path="risk-assessment/:leadId" element={<OverallInsights />} />
-                <Route path="document/:id" element={<DocumentInsight />} />
+                <Route path="documents/:id" element={<DocumentInsight />} />
                 <Route path="audio/:id" element={<AudioInsight />} />
             </Route>
 
