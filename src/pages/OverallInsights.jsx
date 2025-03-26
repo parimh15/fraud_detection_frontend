@@ -143,8 +143,12 @@ const OverallInsights = () => { // Remove onLeadNameChange from props definition
                 case 'Reference Call':
                     navigate(`/audio/${id}`);
                     break;
-                default:
-                    navigate(`/document/${id}/${doctype.toLowerCase()}`);
+                case 'Aadhaar':
+                    navigate(`/aadhaar-insights/${id}`);
+                    break;
+
+                case 'Pan':
+                    navigate(`/pan-insights/${id}`);
                     break;
             }
         }

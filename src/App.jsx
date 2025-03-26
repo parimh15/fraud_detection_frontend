@@ -5,14 +5,15 @@ import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import LeadsPage from './pages/LeadsPage';
 import OverallInsights from './pages/OverallInsights';
-import DocumentInsight from './pages/DocumentInsights';
+//import DocumentInsight from './pages/DocumentInsights'; // Remove this line
+import PanInsights from './pages/PanInsights'; // Add this line
+import AadhaarInsights from './pages/AadhaarInsights'; // Add this line
 import AudioInsight from './pages/AudioInsights';
 import UploadPage from './pages/UploadPage';
 import CustomInsightPage from './pages/CustomInsightPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import { AuthProvider, useAuth } from './context/AuthContext'; // Import AuthProvider
-
 import FileRecordsDashboard from './pages/FileRecordsDashBoard';
 
 function App() {
@@ -32,7 +33,6 @@ function AppRoutes() {
         return <div>Loading...</div>; // Or a spinner
     }
 
-
     return (
         <Routes>
             <Route
@@ -51,11 +51,18 @@ function AppRoutes() {
             >
                 <Route index element={<Home />} />
                 <Route path="leads" element={<LeadsPage />} />
-                <Route path="upload" element={<UploadPage />} /> 
+                <Route path="upload" element={<UploadPage />} />
                 <Route path="/document-trail" element={<FileRecordsDashboard />} />
                 <Route path="custom-insight" element={<CustomInsightPage />} />
                 <Route path="risk-assessment/:leadId" element={<OverallInsights />} />
-                <Route path="documents/:id" element={<DocumentInsight />} />
+
+                {/* Remove or comment out the original DocumentInsight route */}
+                {/* <Route path="documents/:id" element={<DocumentInsight />} /> */}
+
+                {/* Add routes for PanInsights and AadhaarInsights with documentId parameter */}
+                <Route path="pan-insights/:documentId" element={<PanInsights />} />
+                <Route path="aadhaar-insights/:documentId" element={<AadhaarInsights />} />
+
                 <Route path="audio/:id" element={<AudioInsight />} />
             </Route>
 
@@ -64,6 +71,5 @@ function AppRoutes() {
         </Routes>
     );
 }
-
 
 export default App;
