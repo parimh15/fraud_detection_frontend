@@ -1,421 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Typography, 
-  Tag, 
-  Empty, 
-  Spin, 
-  Alert,
-  Row,
-  Col,
-  Button,
-  Drawer 
+import {
+  Card, Typography, Tag, Empty, Spin, Alert, Row, Col, Button, Drawer, Select
 } from 'antd';
-import { 
-  FileOutlined, 
-  ClockCircleOutlined, 
-  CloseOutlined
-} from '@ant-design/icons';
+import { FileOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const { Title, Text } = Typography;
-
+const { Text } = Typography;
+const { Option } = Select;
 const FileRecordItem = ({ record }) => {
   const getStatusColor = (status) => {
-    switch(status.toLowerCase()) {
+    switch (status.toLowerCase()) {
       case 'pending': return 'orange';
       case 'processed': return 'green';
       case 'accept': return 'blue';
       default: return 'default';
     }
   };
-
   return (
-    <Card 
-      hoverable 
-      style={{ 
-        borderLeft: '4px solid', 
-        borderLeftColor: getStatusColor(record.status),
-        marginBottom: '24px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        maxWidth: '900px',
-        margin: '0 auto',
-        position: 'relative',
-        zIndex: 10 // Ensure cards are above background
-      }}
+    <Card
+      hoverable
+      style={{ borderLeft: '4px solid', borderLeftColor: getStatusColor(record.status), marginBottom: '16px' }}
     >
       <Row align="middle" justify="space-between">
         <Col xs={24} sm={8}>
-          <div className="flex items-center">
-            <FileOutlined className="mr-2 text-gray-500" />
-            <Text strong>{record.fileType}</Text>
-          </div>
+          <FileOutlined style={{ marginRight: 8, color: 'gray' }} />
+          <Text strong>{record.fileType}</Text>
         </Col>
-
         <Col xs={24} sm={8} className="text-center">
-          <Tag color={getStatusColor(record.status)}>
-            {record.status.toUpperCase()}
-          </Tag>
+          <Tag color={getStatusColor(record.status)}>{record.status.toUpperCase()}</Tag>
         </Col>
-
         <Col xs={24} sm={8} className="text-right">
-          <div className="flex items-center justify-end">
-            <ClockCircleOutlined className="mr-2 text-gray-500" />
-            <Text type="secondary">
-              {new Date(record.uploadedAt).toLocaleString()}
-            </Text>
-          </div>
+          <Text type="secondary">{new Date(record.uploadedAt).toLocaleString()}</Text>
         </Col>
       </Row>
     </Card>
   );
 };
-
 const FileRecordsDashboard = () => {
   const [fileRecords, setFileRecords] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [visible, setVisible] = useState(true);
-
   const navigate = useNavigate();
   const { agent } = useAuth();
   const agentId = agent?.agentId;
-
   const API_BASE_URL = 'http://localhost:8080';
-
   useEffect(() => {
-    const fetchFileRecords = async () => {
+    const fetchLeads = async () => {
       if (!agentId) return;
-
       setLoading(true);
       setError(null);
-
       try {
-        const leadsResponse = await fetch(`${API_BASE_URL}/leads/agent/${agentId}/name-email`);
-        if (!leadsResponse.ok) {
-          throw new Error(`Failed to fetch leads: ${leadsResponse.status}`);
+        const response = await fetch(`${API_BASE_URL}/leads/agent/${agentId}/name-email`);
+        if (!response.ok) throw new Error(`Failed to fetch leads: ${response.status}`);
+        const leadsData = await response.json();
+        setLeads(leadsData);
+        // Auto-select the first lead (optional)
+        if (leadsData.length > 0) {
+          setSelectedLeadId(leadsData[0].id);
         }
-        const leads = await leadsResponse.json();
-
-        if (leads.length === 0) {
-          setFileRecords([]);
-          return;
-        }
-
-        const leadId = leads[0].id;
-
-        const filesResponse = await fetch(`${API_BASE_URL}/files/${agentId}/${leadId}`);
-        if (!filesResponse.ok) {
-          throw new Error(`Failed to fetch file records: ${filesResponse.status}`);
-        }
-        const records = await filesResponse.json();
-
-        setFileRecords(records);
       } catch (err) {
-        console.error('Error fetching file records:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchFileRecords();
+    fetchLeads();
   }, [agentId]);
-
+  useEffect(() => {
+    const fetchFileRecords = async () => {
+      if (!selectedLeadId || !agentId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/files/${agentId}/${selectedLeadId}`);
+        if (!response.ok) throw new Error(`Failed to fetch file records: ${response.status}`);
+        const records = await response.json();
+        setFileRecords(records);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFileRecords();
+  }, [selectedLeadId, agentId]);
+  const handleLeadChange = (leadId) => {
+    setSelectedLeadId(leadId);
+  };
   const handleClose = () => {
     setVisible(false);
     navigate('/upload');
   };
-
-  const BackgroundIcon = () => (
-    <div 
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        opacity: 0.05,
-        zIndex: 1
-      }}
-    >
-      <svg 
-        width="300" 
-        height="300" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="0.5" 
-        color="gray"
-      >
-        <path 
-          d="M22 12h-4l-3 9L9 3l-3 9H2" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  );
-
   return (
     <Drawer
       title="File Records"
       placement="right"
       onClose={handleClose}
       visible={visible}
-      width={500}
-      mask={true}
+      width={800}
       maskClosable={false}
-      style={{ 
-        position: 'fixed', 
-        zIndex: 1000,
-        top: 0,
-        right: 0,
-        height: '100vh'
-      }}
-      bodyStyle={{ 
-        padding: '24px', 
-        height: '100%', 
-        overflow: 'auto',
-        position: 'relative'
-      }}
     >
-      <div 
-        style={{ 
-          position: 'relative', 
-          height: '100%',
-          zIndex: 2 
-        }}
-      >
-        <BackgroundIcon />
-        <div className="space-y-6" style={{ position: 'relative', zIndex: 10 }}>
-          {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <Spin size="large" tip="Loading file records..." />
-            </div>
-          ) : error ? (
-            <Alert 
-              message="Error" 
-              description={error} 
-              type="error" 
-              showIcon 
-            />
-          ) : fileRecords.length === 0 ? (
-            <Empty description="No File Records Found" />
-          ) : (
-            fileRecords.map(record => (
-              <FileRecordItem key={record.fileId} record={record} />
-            ))
-          )}
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Select a Lead"
+          onChange={handleLeadChange}
+          value={selectedLeadId}
+        >
+          {leads.map(lead => (
+            <Option key={lead.id} value={lead.id}>
+              {lead.name} ({lead.email})
+            </Option>
+          ))}
+        </Select>
       </div>
+      {loading ? (
+        <Spin size="large" tip="Loading file records..." />
+      ) : error ? (
+        <Alert message="Error" description={error} type="error" showIcon />
+      ) : fileRecords.length === 0 ? (
+        <Empty description="No File Records Found" />
+      ) : (
+        fileRecords.map(record => <FileRecordItem key={record.fileId} record={record} />)
+      )}
     </Drawer>
   );
 };
- 
-export default FileRecordsDashboard; 
-
-
-
-// import React, { useState, useEffect } from 'react';
-// import { 
-//   Card, 
-//   Typography, 
-//   Tag, 
-//   Empty, 
-//   Spin, 
-//   Alert,
-//   Row,
-//   Col,
-//   Drawer 
-// } from 'antd';
-// import { 
-//   FileOutlined, 
-//   ClockCircleOutlined 
-// } from '@ant-design/icons';
-// import { useNavigate } from 'react-router-dom';
-// import { useAuth } from '../context/AuthContext';
-
-// const { Text } = Typography;
-
-// const FileRecordItem = ({ record }) => {
-//   const getStatusColor = (status) => {
-//     switch(status.toLowerCase()) {
-//       case 'pending': return 'orange';
-//       case 'processed': return 'green';
-//       case 'accept': return 'blue';
-//       default: return 'default';
-//     }
-//   };
-
-//   return (
-//     <Card 
-//       hoverable 
-//       style={{ 
-//         borderLeft: '4px solid', 
-//         borderLeftColor: getStatusColor(record.status),
-//         marginBottom: '16px', 
-//         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-//         position: 'relative',
-//         zIndex: 10
-//       }}
-//     >
-//       <Row align="middle" justify="space-between">
-//         <Col xs={24} sm={8}>
-//           <div className="flex items-center">
-//             <FileOutlined className="mr-2 text-gray-500" />
-//             <Text strong>{record.fileType}</Text>
-//           </div>
-//         </Col>
-
-//         <Col xs={24} sm={8} className="text-center">
-//           <Tag color={getStatusColor(record.status)}>
-//             {record.status.toUpperCase()}
-//           </Tag>
-//         </Col>
-
-//         <Col xs={24} sm={8} className="text-right">
-//           <div className="flex items-center justify-end">
-//             <ClockCircleOutlined className="mr-2 text-gray-500" />
-//             <Text type="secondary">
-//               {new Date(record.uploadedAt).toLocaleString()}
-//             </Text>
-//           </div>
-//         </Col>
-//       </Row>
-//     </Card>
-//   );
-// };
-
-// const FileRecordsDashboard = () => {
-//   const [fileRecords, setFileRecords] = useState([]);
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState(null);
-//   const [visible, setVisible] = useState(true);
-
-//   const navigate = useNavigate();
-//   const { agent } = useAuth();
-//   const agentId = agent?.agentId;
-
-//   const API_BASE_URL = 'http://localhost:8080';
-
-//   useEffect(() => {
-//     const fetchFileRecords = async () => {
-//       if (!agentId) return;
-
-//       setLoading(true);
-//       setError(null);
-
-//       try {
-//         const leadsResponse = await fetch(`${API_BASE_URL}/leads/agent/${agentId}/name-email`);
-//         if (!leadsResponse.ok) {
-//           throw new Error(`Failed to fetch leads: ${leadsResponse.status}`);
-//         }
-//         const leads = await leadsResponse.json();
-
-//         if (leads.length === 0) {
-//           setFileRecords([]);
-//           return;
-//         }
-
-//         const leadId = leads[0].id;
-
-//         const filesResponse = await fetch(`${API_BASE_URL}/files/${agentId}/${leadId}`);
-//         if (!filesResponse.ok) {
-//           throw new Error(`Failed to fetch file records: ${filesResponse.status}`);
-//         }
-//         const records = await filesResponse.json();
-
-//         setFileRecords(records);
-//       } catch (err) {
-//         console.error('Error fetching file records:', err);
-//         setError(err.message);
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-
-//     fetchFileRecords();
-//   }, [agentId]);
-
-//   const handleClose = () => {
-//     setVisible(false);
-//     navigate('/upload');
-//   };
-
-//   const BackgroundIcon = () => (
-//     <div 
-//       style={{
-//         position: 'absolute',
-//         top: '50%',
-//         left: '50%',
-//         transform: 'translate(-50%, -50%)',
-//         opacity: 0.05,
-//         zIndex: 1
-//       }}
-//     >
-//       <svg 
-//         width="200" 
-//         height="200" 
-//         viewBox="0 0 24 24" 
-//         fill="none" 
-//         stroke="currentColor" 
-//         strokeWidth="0.5" 
-//         color="gray"
-//       >
-//         <path 
-//           d="M22 12h-4l-3 9L9 3l-3 9H2" 
-//           fill="none" 
-//           stroke="currentColor" 
-//           strokeLinecap="round" 
-//           strokeLinejoin="round"
-//         />
-//       </svg>
-//     </div>
-//   );
-
-//   return (
-//     <Drawer
-//       title="File Records"
-//       placement="right"
-//       onClose={handleClose}
-//       visible={visible}
-//       width={800}
-//       bodyStyle={{ 
-//         position: 'relative',
-//         height: '100%',
-//         overflow: 'auto'
-//       }}
-//     >
-//       <div style={{ position: 'relative', height: '100%' }}>
-//         <BackgroundIcon />
-//         <div style={{ position: 'relative', zIndex: 10 }}>
-//           {loading ? (
-//             <div className="flex justify-center items-center h-full">
-//               <Spin size="large" tip="Loading file records..." />
-//             </div>
-//           ) : error ? (
-//             <Alert 
-//               message="Error" 
-//               description={error} 
-//               type="error" 
-//               showIcon 
-//             />
-//           ) : fileRecords.length === 0 ? (
-//             <Empty description="No File Records Found" />
-//           ) : (
-//             <div className="space-y-4">
-//               {fileRecords.map(record => (
-//                 <FileRecordItem key={record.fileId} record={record} />
-//               ))}
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </Drawer>
-//   );
-// };
- 
-// export default FileRecordsDashboard;
+export default FileRecordsDashboard;
