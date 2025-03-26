@@ -141,10 +141,10 @@ const OverallInsights = () => { // Remove onLeadNameChange from props definition
             // Redirecting based on document type
             switch (doctype) {
                 case 'Reference Call':
-                    navigate(`/audio/${leadId}`);
+                    navigate(`/audio/${id}`);
                     break;
                 default:
-                    navigate(`/document/${leadId}/${doctype.toLowerCase()}`);
+                    navigate(`/document/${id}/${doctype.toLowerCase()}`);
                     break;
             }
         }
