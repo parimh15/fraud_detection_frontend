@@ -3,48 +3,37 @@ import axios from 'axios';
 import { useParams } from 'react-router-dom';
 
 import {
-    Card, Row, Col, Typography, Divider, Tag, Progress, Table, Space, Descriptions, Image, Alert, Timeline, Statistic, Spin
+    Card, Row, Col, Typography, Divider, Tag, Progress, Table, Space, Descriptions, Alert, Timeline, Statistic, Spin
 } from 'antd';
 import {
-    CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined,
-    FileTextOutlined, ScanOutlined, SafetyOutlined, FileImageOutlined, AuditOutlined, CheckOutlined
+    CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileImageOutlined,
+    FileTextOutlined, ScanOutlined, SafetyOutlined, AuditOutlined, CheckOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 
-const DocumentInsight = () => {
+// --- AadhaarInsights Component ---
+const AadhaarInsights = (props) => {
     const [documentData, setDocumentData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [imageURL, setImageURL] = useState(null);
-    const [imageError, setImageError] = useState(null);
-    const { id } = useParams();
+    const { documentId } = useParams(); // Get documentId from URL  <----- IMPORTANT:  Changed leadId to documentId
+    // If you want to keep it leadId make sure that the route definition also is leadId
 
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             setError(null);
-            setImageError(null);
+
             try {
-                const result = await axios.get(`http://localhost:8080/documents/result?documentId=${id}`);
+                // Use documentId in the API endpoint
+                const result = await axios.get(`http://localhost:8080/documents/${documentId}/Aadhaar`);  // <---- IMPORTANT:  Used documentId here
                 setDocumentData(result.data);
-                console.log("Fetched DocumentData:", result.data);
-
-                try {
-                    const imageResponse = await axios.get(`http://localhost:8080/documents/image/${id}`, {
-                        responseType: 'blob'
-                    });
-
-                    const imageUrl = URL.createObjectURL(imageResponse.data);
-                    setImageURL(imageUrl);
-                } catch (imageFetchError) {
-                    console.error("Error fetching image:", imageFetchError);
-                    setImageError("Failed to load document preview.");
-                }
+                console.log("Fetched Aadhaar Data:", result.data);
 
             } catch (error) {
-                console.error("Error fetching document data:", error);
-                setError("Failed to load document insights. Please try again.");
+                console.error("Error fetching Aadhaar data:", error);
+                setError("Failed to load Aadhaar insights. Please try again.");
             } finally {
                 setLoading(false);
             }
@@ -52,13 +41,9 @@ const DocumentInsight = () => {
 
         fetchData();
 
-        return () => {
-            if (imageURL) {
-                URL.revokeObjectURL(imageURL);
-            }
-        };
-    }, [id]);
+    }, [documentId]); //  <---- IMPORTANT: Added documentId as a dependency to useEffect.  This is crucial!
 
+    // --- Utility Functions (moved outside components for reusability) ---
     const getRiskColor = (score) => {
         if (score === null || score === undefined) {
             return 'default';
@@ -79,15 +64,18 @@ const DocumentInsight = () => {
         { title: 'Expected Value', dataIndex: 'expected', key: 'expected' },
         { title: 'Extracted Value', dataIndex: 'extracted', key: 'extracted' },
         {
-            title: 'Match Score', dataIndex: 'match_score', key: 'match_score',
+            title: 'Match Score',
+            dataIndex: 'match_score',
+            key: 'match_score',
             render: (score) => (
                 <Space size="small">
                     {getMatchStatusIcon(score)}
-                    <span>{score ? score.toFixed(2) : 0}%</span>
+                    <span>{score !== null && score !== undefined ? score.toFixed(2) : 'N/A'}%</span>
                 </Space>
             ),
         },
     ];
+
 
     const qualityColumns = [
         { title: 'Aspect', dataIndex: 'aspect', key: 'aspect' },
@@ -131,103 +119,86 @@ const DocumentInsight = () => {
         { title: 'Detailed Insight', dataIndex: 'insight', key: 'insight' },
     ];
 
-    const prepareValidationData = () => {
-        console.log("prepareValidationData called");
+    const prepareValidationData = (documentData) => {
         try {
-            if (documentData?.validationResults) {
-                console.log("documentData.validationResults exists:", documentData.validationResults);
-                const validationResults = documentData.validationResults;
-                console.log("validationResults", validationResults);
-                const preparedData = Object.entries(validationResults?.validation_results || {}).map(([field, data], index) => {
-                    console.log("Mapping over validation results field:", field, data);
+            if (documentData?.validationResults?.validation_results) {
+                const validationResults = documentData.validationResults.validation_results;
+                const preparedData = Object.entries(validationResults).map(([field, data], index) => {
                     return {
                         key: index,
                         field: field.replace(/_/g, ' ').toUpperCase(),
-                        expected: data?.expected,
-                        extracted: data?.extracted,
-                        match_score: data?.match_score,
+                        expected: data?.expected !== null && data?.expected !== undefined ? data.expected : 'N/A',
+                        extracted: data?.extracted !== null && data?.extracted !== undefined ? data.extracted : 'N/A',
+                        match_score: data?.match_score !== null && data?.match_score !== undefined ? data.match_score : null,
                     };
                 });
-                console.log("prepareValidationData preparedData:", preparedData);
                 return preparedData;
             }
-            console.log("No validationResults, returning empty array");
             return [];
         } catch (error) {
             console.error("Error processing validationResults:", error);
             return [];
-        } finally {
-            console.log("prepareValidationData finished");
         }
     };
 
-    const prepareQualityData = () => {
-        console.log("prepareQualityData called");
+    const prepareQualityData = (documentData) => {
         try {
-            if (documentData?.qualityResults) {
-                console.log("documentData.qualityResults exists:", documentData.qualityResults);
-                const qualityResults = documentData.qualityResults;
-                console.log("qualityResults", qualityResults);
-                const preparedData = Object.entries(qualityResults?.qualityAnalysis || {}).map(([field, data], index) => {
-                    console.log("Mapping over quality analysis field:", field, data);
+            if (documentData?.qualityResults?.qualityAnalysis) {
+                const qualityAnalysis = documentData.qualityResults.qualityAnalysis;
+                const preparedData = Object.entries(qualityAnalysis).map(([field, data], index) => {
                     const scoreKey = Object.keys(data).find((key) => key.includes('Score'));
                     const score = data?.[scoreKey];
+
                     return {
                         key: index,
                         aspect: field.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
-                        score: score,
-                        insight: data?.detailedInsight,
-                        recommendation: data?.recommendations || 'None provided',
+                        score: score !== null && score !== undefined ? score : 0, // Providing a default of 0
+                        insight: data?.detailedInsight || 'N/A', // Providing a default for insight
+                        recommendation: data?.recommendations || 'N/A', // Providing a default for recommendation
                     };
                 });
-                console.log("prepareQualityData preparedData:", preparedData);
                 return preparedData;
             }
-            console.log("No qualityResults, returning empty array");
             return [];
         } catch (error) {
             console.error("Error processing qualityResults:", error);
             return [];
-        } finally {
-            console.log("prepareQualityData finished");
         }
     };
 
-    const prepareForgeryData = () => {
-        console.log("prepareForgeryData called");
+    const prepareForgeryData = (documentData) => {
         try {
-            if (documentData?.forgeryResults) {
-                console.log("documentData.forgeryResults exists:", documentData.forgeryResults);
-                const forgeryResults = documentData.forgeryResults;
-                console.log("forgeryResults", forgeryResults);
-                const preparedData = Object.entries(forgeryResults?.forgeryAnalysis || {}).filter(([key]) => key !== 'overallForgeryAssessment').map(([field, data], index) => {
-                    console.log("Mapping over forgery analysis field:", field, data);
-                    const scoreKey = Object.keys(data).find((key) => key.includes('Score'));
-                    const score = data?.[scoreKey];
-                    return {
-                        key: index,
-                        aspect: field.replace(/([A-Z])/g, ' $1').replace(/Analysis$/, '').replace(/^./, (str) => str.toUpperCase()),
-                        score: score,
-                        riskLevel: forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore <= 0.3 ? 'Low Risk' : forgeryResults.forgeryAnalysis.overallForgeryAssessment.finalForgeryRiskScore <= 0.7 ? 'Medium Risk' : 'High Risk',
-                        insight: data?.detailedInsight,
-                    };
-                });
-                console.log("prepareForgeryData preparedData:", preparedData);
+            if (documentData?.forgeryResults?.forgeryAnalysis) {
+                const forgeryAnalysis = documentData.forgeryResults.forgeryAnalysis;
+
+                const preparedData = Object.entries(forgeryAnalysis)
+                    .filter(([key]) => key !== 'overallForgeryAssessment')
+                    .map(([field, data], index) => {
+                        const scoreKey = Object.keys(data).find((key) => key.includes('Score'));
+                        const score = data?.[scoreKey];
+                        const finalForgeryRiskScore = forgeryAnalysis?.overallForgeryAssessment?.finalForgeryRiskScore;
+
+                        return {
+                            key: index,
+                            aspect: field.replace(/([A-Z])/g, ' $1').replace(/Analysis$/, '').replace(/^./, (str) => str.toUpperCase()),
+                            score: score !== null && score !== undefined ? score : 0,
+                            riskLevel: finalForgeryRiskScore <= 0.3 ? 'Low Risk' : finalForgeryRiskScore <= 0.7 ? 'Medium Risk' : 'High Risk',
+                            insight: data?.insight || 'N/A', // Providing a default
+                        };
+                    });
+
                 return preparedData;
             }
-            console.log("No forgeryResults, returning empty array");
             return [];
         } catch (error) {
             console.error("Error processing forgeryResults:", error);
             return [];
-        } finally {
-            console.log("prepareForgeryData finished");
         }
     };
 
     if (loading) {
         return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-            <Spin size="large" tip="Loading document insights..." />
+            <Spin size="large" tip="Loading Aadhaar insights..." />
         </div>;
     }
 
@@ -236,20 +207,19 @@ const DocumentInsight = () => {
     }
 
     if (!documentData) {
-        return <Alert message="No Data" description="No document data available." type="warning" showIcon />;
+        return <Alert message="No Data" description="No Aadhaar data available." type="warning" showIcon />;
     }
 
-    const validationData = prepareValidationData();
-    const qualityData = prepareQualityData();
-    const forgeryData = prepareForgeryData();
+    const validationData = prepareValidationData(documentData);
+    const qualityData = prepareQualityData(documentData);
+    const forgeryData = prepareForgeryData(documentData);
 
-    // Get safe values for all fields that might be undefined
     const riskLevel = documentData?.riskLevel || 'LOW';
     const decision = documentData?.decision || 'UNKNOWN';
     const nextSteps = documentData?.nextSteps || 'No next steps provided';
     const remarks = documentData?.remarks || 'No remarks provided';
     const finalRiskScore = documentData?.finalRiskScore || 0;
-    const documentType = documentData?.ocrResults?.structured_data?.document_type || 'Unknown';
+    const documentTypeVal = documentData?.ocrResults?.structured_data?.documentType || 'Unknown'; // Changed variable name to documentTypeVal to avoid confusion.
 
     // Calculate quality score safely
     const qualityScore = documentData?.qualityResults?.finalQualityScore || 0;
@@ -268,19 +238,20 @@ const DocumentInsight = () => {
     const validationScoreColor = getValidationColor(validationScore);
     const validationStatusColor = validationStatus === "PASS" ? "green" : "red";
 
+
     return (
         <div style={{ padding: '24px', fontSize: '13px' }}>
             <Card className="summary-card" style={{ marginBottom: '12px' }}>
-            <Row gutter={[24, 16]}>
-                <Col span={15}>
-                    <Title level={3}><FileTextOutlined /> Document Verification Report</Title>
-                    <Descriptions bordered column={1} size="small" style={{ marginBottom: '16px' }}>
-                        <Descriptions.Item label="Processing Status"><Tag color="green"><CheckOutlined /> Completed</Tag></Descriptions.Item>
-                    </Descriptions>
+                <Row gutter={[24, 16]}>
+                    <Col span={24}>
+                        <Title level={3}><FileTextOutlined /> Aadhaar Verification Report</Title>
+                        <Descriptions bordered column={1} size="small" style={{ marginBottom: '16px' }}>
+                            <Descriptions.Item label="Processing Status"><Tag color="green"><CheckOutlined /> Completed</Tag></Descriptions.Item>
+                        </Descriptions>
 
-                    <Card style={{ 
-                            marginTop: '8px', 
-                            backgroundColor: riskAssessmentColor, 
+                        <Card style={{
+                            marginTop: '8px',
+                            backgroundColor: riskAssessmentColor,
                             borderColor: riskAssessmentColor,
                             padding: '8px'
                         }}>
@@ -289,67 +260,15 @@ const DocumentInsight = () => {
                                 prefix={riskLevel === "LOW" ? <CheckCircleOutlined /> : riskLevel === "MEDIUM" ? <ExclamationCircleOutlined /> : <CloseCircleOutlined />} />
                             <Divider style={{ margin: '8px 0' }} />
                             <Row gutter={[16, 0]}>
-                            <Col span={10}><Statistic title="Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red" }} /></Col>
-                            <Col span={14}>
-                                <div style={{ paddingLeft: '8px' }}>
-                                    <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
-                                    <Text strong>Remarks:</Text> <Text>{remarks}</Text>
-                                </div>
-                            </Col>
-                        </Row>
+                                <Col span={10}><Statistic title="Decision" value={decision} valueStyle={{ color: decision === "APPROVE" ? "green" : "red" }} /></Col>
+                                <Col span={14}>
+                                    <div style={{ paddingLeft: '8px' }}>
+                                        <Text strong>Next Steps:</Text> <Text>{nextSteps}</Text><br />
+                                        <Text strong>Remarks:</Text> <Text>{remarks}</Text>
+                                    </div>
+                                </Col>
+                            </Row>
                         </Card>
-                    </Col>
-                    <Col span={9} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Card 
-                        style={{ 
-                            width: '100%', 
-                            marginBottom: '8px', 
-                            textAlign: 'center',
-                            background: 'linear-gradient(135deg, #e6f7ff, #bae7ff)',
-                            borderLeft: '4px solid #1890ff'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <FileTextOutlined style={{ fontSize: '18px', marginRight: '8px', color: '#1890ff' }} />
-                            <Title level={4} style={{ margin: '0', color: '#1890ff', textTransform: 'uppercase' }}>{documentType}</Title>
-                        </div>
-                        <Text type="secondary">Government-issued Identity Document</Text>
-                    </Card>
-                    <Card 
-    title={<span><FileImageOutlined /> Document Preview</span>}
-    style={{ 
-        width: '100%',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.09)'
-    }}
-    headStyle={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}
->
-    <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center',
-        padding: '12px',
-        background: '#f9f9f9',
-        borderRadius: '4px'
-    }}>
-        {imageURL ? (
-            <Image 
-                width={180} 
-                src={imageURL} 
-                alt="Document Preview"
-                style={{ border: '1px solid #d9d9d9', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}
-            />
-        ) : (
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-                {imageError ? 
-                    <Alert message={imageError} type="error" showIcon /> : 
-                    <Spin tip="Loading preview..." />
-                }
-            </div>
-        )}
-    </div>
-    <div style={{ textAlign: 'center', marginTop: '8px' }}>
-        <Text type="secondary">Secure document • Verified <CheckCircleOutlined style={{ color: 'green' }} /></Text>
-    </div>
-</Card>
                     </Col>
                 </Row>
             </Card>
@@ -360,11 +279,11 @@ const DocumentInsight = () => {
                 <Alert message="OCR Provider: Gemini Vision Pro API" type="info" showIcon style={{ marginBottom: '8px' }} />
                 <Row gutter={[8, 8]}>
                     {documentData?.ocrResults?.structured_data ? Object.entries(documentData.ocrResults.structured_data)
-                        .filter(([key]) => key !== 'raw_text' && key !== 'document_type')
+                        .filter(([key]) => key !== 'raw_text')
                         .map(([key, value], index) => (
                             <Col span={8} key={index}>
                                 <Card bordered={false} size="small" style={{ backgroundColor: '#f5f5f5' }}>
-                                    <Statistic title={key.replace(/_/g, ' ').toUpperCase()} value={value} valueStyle={{ fontSize: '14px' }} />
+                                    <Statistic title={key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())} value={value} valueStyle={{ fontSize: '14px' }} />
                                 </Card>
                             </Col>
                         )) : null}
@@ -379,7 +298,7 @@ const DocumentInsight = () => {
                         <Col span={8}>
                             <Progress
                                 type="dashboard"
-                                percent={(forgeryRiskScore * 100).toFixed(0)}
+                                percent={(finalRiskScore * 100).toFixed(0)}
                                 strokeColor={getRiskColor(forgeryRiskScore)}
                                 format={percent => `${percent}%`}
                             />
@@ -391,28 +310,6 @@ const DocumentInsight = () => {
                     </Row>
                 </Card>
                 <Table dataSource={forgeryData} columns={forgeryColumns} pagination={false} bordered size="small" style={{ marginTop: '8px' }} />
-            </Card>
-
-            <Divider style={{ margin: '8px 0' }} />
-
-            <Card title={<Title level={4}><FileImageOutlined /> Image Quality Analysis</Title>} style={{ marginBottom: '12px' }}>
-                <Card bordered={false} style={{ backgroundColor: qualityScore >= 0.8 ? '#f6ffed' : qualityScore >= 0.6 ? '#fffbe6' : '#fff2f0' }}>
-                    <Row align="middle">
-                        <Col span={8}>
-                            <Progress
-                                type="dashboard"
-                                percent={(qualityScore * 100).toFixed(0)}
-                                status={qualityScore >= 0.8 ? "success" : qualityScore >= 0.6 ? "normal" : "exception"}
-                                format={percent => `${percent}%`}
-                            />
-                        </Col>
-                        <Col span={16}>
-                            <Statistic title="Image Quality Assessment" value={qualityDecision} valueStyle={{ color: qualityScore >= 0.8 ? "green" : qualityScore >= 0.6 ? "orange" : "red" }} />
-                            <Paragraph style={{ marginTop: '4px', marginBottom: '4px' }}>This score represents the overall quality of the document image, including factors like readability, clarity, lighting, and completeness.</Paragraph>
-                        </Col>
-                    </Row>
-                </Card>
-                <Table dataSource={qualityData} columns={qualityColumns} pagination={false} bordered size="small" style={{ marginTop: '8px' }} />
             </Card>
 
             <Divider style={{ margin: '8px 0' }} />
@@ -439,6 +336,28 @@ const DocumentInsight = () => {
                     </Row>
                 </Card>
                 <Table dataSource={validationData} columns={validationColumns} pagination={false} bordered size="small" style={{ marginTop: '8px' }} />
+            </Card>
+
+            <Divider style={{ margin: '8px 0' }} />
+
+            <Card title={<Title level={4}><FileImageOutlined /> Image Quality Analysis</Title>} style={{ marginBottom: '12px' }}>
+                <Card bordered={false} style={{ backgroundColor: qualityScore >= 0.8 ? '#f6ffed' : qualityScore >= 0.6 ? '#fffbe6' : '#fff2f0' }}>
+                    <Row align="middle">
+                        <Col span={8}>
+                            <Progress
+                                type="dashboard"
+                                percent={(qualityScore * 100).toFixed(0)}
+                                status={qualityScore >= 0.8 ? "success" : qualityScore >= 0.6 ? "normal" : "exception"}
+                                format={percent => `${percent}%`}
+                            />
+                        </Col>
+                        <Col span={16}>
+                            <Statistic title="Image Quality Assessment" value={qualityDecision} valueStyle={{ color: qualityScore >= 0.8 ? "green" : qualityScore >= 0.6 ? "orange" : "red" }} />
+                            <Paragraph style={{ marginTop: '4px', marginBottom: '4px' }}>This score represents the overall quality of the document image, including factors like readability, clarity, lighting, and completeness.</Paragraph>
+                        </Col>
+                    </Row>
+                </Card>
+                <Table dataSource={qualityData} columns={qualityColumns} pagination={false} bordered size="small" style={{ marginTop: '8px' }} />
             </Card>
 
             <Divider style={{ margin: '8px 0' }} />
@@ -480,4 +399,4 @@ const DocumentInsight = () => {
     );
 };
 
-export default DocumentInsight;
+export default AadhaarInsights;

@@ -13,7 +13,8 @@ import {
     Space,
     Collapse,
     Tooltip,
-    Statistic
+    Statistic,
+    Avatar
 } from 'antd';
 import {
     PlayCircleOutlined,
@@ -22,7 +23,8 @@ import {
     SoundOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    InfoCircleOutlined
+    InfoCircleOutlined,
+    UserOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
@@ -39,17 +41,38 @@ const AudioInsights = () => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef(null);
     const { id } = useParams();
-
+    const [groundTruthData, setGroundTruthData] = useState(null);
+    const [agentTalkTime, setAgentTalkTime] = useState(0);
+    const [referenceTalkTime, setReferenceTalkTime] = useState(0);
+    const cardRef = useRef([]); // Ref to store card elements
 
     useEffect(() => {
         const fetchAudioData = async () => {
             try {
                 const response = await axios.get(`http://localhost:8080/audio/${id}`);
-                setAudioData(response.data);
+
+                if (response.data) {
+                    setAudioData(response.data);
+                    await fetchGroundTruthData(response.data.leadId);
+                } else {
+                    setError('No audio data found for this ID');
+                }
+
                 setLoading(false);
             } catch (err) {
+                console.error('Error fetching audio data:', err);
                 setError('Failed to load audio data');
                 setLoading(false);
+            }
+        };
+
+        const fetchGroundTruthData = async (leadId) => {
+            try {
+                const response = await axios.get(`http://localhost:8080/leads/${leadId}/audio`);
+                setGroundTruthData(response.data);
+            } catch (err) {
+                console.error('Error fetching ground truth data:', err);
+                setError('Failed to load ground truth data');
             }
         };
 
@@ -57,11 +80,9 @@ const AudioInsights = () => {
     }, [id]);
 
     useEffect(() => {
-        if (audioData) {
-            // Fix for audio path - using a public URL format that the browser can access
-            audioRef.current = new Audio(`http://localhost:8080/audio/audio-file/${id}`);
+        if (audioData && audioData.uuid) {
+            audioRef.current = new Audio(`http://localhost:8080/audio/audio-file/${audioData.uuid}`);
 
-            // Add event listeners
             audioRef.current.addEventListener('ended', () => setIsPlaying(false));
             audioRef.current.addEventListener('error', (e) => {
                 console.error('Audio playback error:', e);
@@ -76,13 +97,46 @@ const AudioInsights = () => {
                 }
             };
         }
-    }, [audioData, id]);
+    }, [audioData]);
+
+    useEffect(() => {
+        if (audioData && audioData.llmExtraction && audioData.llmExtraction.transcript) {
+            let agentTime = 0;
+            let referenceTime = 0;
+
+            audioData.llmExtraction.transcript.forEach(entry => {
+                const duration = entry.end_time - entry.start_time;
+                if (entry.speaker === 'SPEAKER_00') {
+                    agentTime += duration;
+                } else if (entry.speaker === 'SPEAKER_01') {
+                    referenceTime += duration;
+                }
+            });
+
+            setAgentTalkTime(agentTime);
+            setReferenceTalkTime(referenceTime);
+        }
+    }, [audioData]);
+
+    useEffect(() => {
+        // After the cards render, find the maximum height
+        if (cardRef.current.length === 3) {
+            const heights = cardRef.current.map(card => card?.offsetHeight || 0);
+            const maxHeight = Math.max(...heights);
+
+            // Set the minimum height for all three cards
+            cardRef.current.forEach(card => {
+                if (card) {
+                    card.style.minHeight = `${maxHeight}px`;
+                }
+            });
+        }
+    }, [audioData]); // Re-run this effect when audioData changes
 
     const togglePlayPause = () => {
         if (isPlaying) {
             audioRef.current.pause();
         } else {
-            // Add error handling for audio play
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
                 playPromise
@@ -99,81 +153,58 @@ const AudioInsights = () => {
         setShowTranscript(!showTranscript);
     };
 
-    // Convert transcript array to a more structured format
-    const parseTranscript = (transcriptArray) => {
-        if (!transcriptArray) return [];
-
-        return transcriptArray.map(item => {
-            // Parse the string to extract values
-            const startMatch = item.match(/start_time=([^,}]+)/);
-            const endMatch = item.match(/end_time=([^,}]+)/);
-            const speakerMatch = item.match(/speaker=([^,}]+)/);
-            const textMatch = item.match(/text=([^}]+)}/);
-
-            return {
-                startTime: startMatch ? parseFloat(startMatch[1]) : 0,
-                endTime: endMatch ? parseFloat(endMatch[1]) : 0,
-                speaker: speakerMatch ? speakerMatch[1] : '',
-                text: textMatch ? textMatch[1] : ''
-            };
-        });
-    };
-
-    // Prepare field comparison data
-    const prepareFieldComparison = () => {
-        if (!audioData) return [];
-
-        return [
-            {
-                field: 'Reference Name',
-                extracted: audioData.referenceName || 'N/A',
-                expected: audioData.referenceName || 'N/A', // Assuming ground truth is the same for simplicity
-                score: audioData.fieldByFieldScores?.reference_name || 0,
-                explanation: audioData.explanation?.[0] || 'No explanation available'
-            },
-            {
-                field: 'Subject Name',
-                extracted: audioData.subjectName || 'N/A',
-                expected: 'Matthew', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_name || 0,
-                explanation: audioData.explanation?.[1] || 'No explanation available'
-            },
-            {
-                field: 'Subject Address',
-                extracted: audioData.subjectAddress || 'N/A',
-                expected: 'Pattimatham, Ernakulam', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_address || 0,
-                explanation: audioData.explanation?.[2] || 'No explanation available'
-            },
-            {
-                field: 'Relation to Subject',
-                extracted: audioData.relationToSubject || 'N/A',
-                expected: 'work together', // Based on the explanation
-                score: audioData.fieldByFieldScores?.relation_to_subject || 0,
-                explanation: audioData.explanation?.[3] || 'No explanation available'
-            },
-            {
-                field: 'Subject Occupation',
-                extracted: audioData.subjectOccupation || 'N/A',
-                expected: 'unemployed', // Based on the explanation
-                score: audioData.fieldByFieldScores?.subject_occupation || 0,
-                explanation: audioData.explanation?.[4] || 'No explanation available'
-            }
-        ];
-    };
-
-    // Define score color function
-    const getScoreColor = (score) => {
-        if (score >= 0.8) return '#52c41a';
-        if (score >= 0.6) return '#faad14';
-        return '#f5222d';
-    };
-
-    // Format time for transcript
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs < 10 ? '0' + secs : secs}`;
+    };
+
+    const prepareFieldComparison = () => {
+        if (!audioData?.llmExtraction?.extracted_result) return [];
+
+        return [
+            {
+                field: 'Reference Name',
+                extracted: audioData.llmExtraction.extracted_result.reference_name || 'N/A',
+                expected: groundTruthData?.referenceName || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.reference_name || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.reference_name || 'No explanation available'
+            },
+            {
+                field: 'Subject Name',
+                extracted: audioData.llmExtraction.extracted_result.subject_name || 'N/A',
+                expected: groundTruthData?.subjectName || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_name || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_name || 'No explanation available'
+            },
+            {
+                field: 'Subject Address',
+                extracted: audioData.llmExtraction.extracted_result.subject_address || 'N/A',
+                expected: groundTruthData?.subjectAddress || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_address || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_address || 'No explanation available'
+            },
+            {
+                field: 'Relation to Subject',
+                extracted: audioData.llmExtraction.extracted_result.relation_to_subject || 'N/A',
+                expected: groundTruthData?.relationToSubject || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.relation_to_subject || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.relation_to_subject || 'No explanation available'
+            },
+            {
+                field: 'Subject Occupation',
+                extracted: audioData.llmExtraction.extracted_result.subject_occupation || 'N/A',
+                expected: groundTruthData?.subjectOccupation || 'N/A',
+                score: audioData.llmExtraction.scoring_results?.field_by_field_scores?.subject_occupation || 0,
+                explanation: audioData.llmExtraction.scoring_results?.explanation?.subject_occupation || 'No explanation available'
+            }
+        ];
+    };
+
+    const getScoreColor = (score) => {
+        if (score >= 0.8) return '#52c41a';
+        if (score >= 0.6) return '#faad14';
+        return '#f5222d';
     };
 
     const statusColor = {
@@ -216,7 +247,7 @@ const AudioInsights = () => {
                         size="small"
                         strokeColor={getScoreColor(score || 0)}
                         style={{ width: 80 }}
-                        format={percent => percent === 100 ? '100' : `${percent}`} // Remove % sign for 100%
+                        format={percent => percent === 100 ? '100' : `${percent}`}
                     />
                 </Space>
             )
@@ -229,40 +260,19 @@ const AudioInsights = () => {
         }
     ];
 
-    // Safely access audioData properties with null checks and default values
-    const transcripts = audioData?.transcripts || [];
-
-    // Example Transcript Parsing (assuming a very specific and consistent format):
-    const parsedTranscript = transcripts.map(entry => {
-        try {
-            const parts = entry.split(", ");
-            const startTime = parseFloat(parts[0].split("=")[1]);
-            const endTime = parseFloat(parts[1].split("=")[1]);
-            const speaker = parts[2].split("=")[1];
-            const text = parts[3].split("=")[1].slice(0, -1); //remove }
-            return { startTime, endTime, speaker, text };
-        } catch (error) {
-            console.error("Error parsing transcript entry:", entry, error);
-            return null; // Or a default object
-        }
-    }).filter(entry => entry !== null); // Remove any failed parses
+    const parsedTranscript = audioData?.llmExtraction?.transcript?.map((entry, index) => ({
+        startTime: entry.start_time || 0,
+        endTime: entry.end_time || 0,
+        speaker: entry.speaker || 'UNKNOWN',
+        text: entry.text || 'N/A'
+    })) || [];
 
     const fieldComparisonData = prepareFieldComparison();
 
-    // Ensure all audioAnalysis properties exist before accessing
-    const audioAnalysis = audioData?.audioAnalysis || {};
+    const snrValue = audioData?.audioAnalysis?.snr_value !== undefined ? audioData.audioAnalysis.snr_value : 0;
+    const fluctuationScore = audioData?.audioAnalysis?.fluctuation_score !== undefined ? audioData.audioAnalysis.fluctuation_score : 0;
 
-    // Check if output exists and is a string, then parse it
-    const parsedOutput = audioAnalysis.output
-        ? JSON.parse(audioAnalysis.output)
-        : {};
-
-    const snrValue = parsedOutput.snr_value !== undefined ? parsedOutput.snr_value : 0;
-    const fluctuationScore = parsedOutput.fluctuation_score !== undefined ? parsedOutput.fluctuation_score : 0;
-    // SNR tooltip info
     const snrTooltip = "Signal-to-Noise Ratio (SNR) measures the level of desired audio signal compared to background noise. Higher values (measured in dB) indicate clearer audio with less noise.";
-
-    // Fluctuation tooltip info
     const fluctuationTooltip = "Fluctuation score measures the stability of audio signal strength throughout the recording. Lower values indicate more consistent audio levels with fewer volume variations.";
 
     return (
@@ -292,23 +302,23 @@ const AudioInsights = () => {
             <Content style={{ padding: '24px', overflow: 'auto' }}>
                 <Row gutter={[24, 24]}>
                     {/* Status and Score Card */}
-                    <Col xs={24} md={12}>
-                        <Card title="Verification Status" bordered={false}>
+                    <Col xs={24} md={8} >
+                        <Card title="Verification Status" bordered={false} ref={(el) => (cardRef.current[0] = el)}>
                             <Row gutter={[16, 16]} align="middle">
                                 <Col span={12}>
                                     <Statistic
                                         title="Status"
-                                        value={(audioData?.status || 'pending').toUpperCase()}
+                                        value={(audioData?.llmExtraction?.status || 'pending').toUpperCase()}
                                         valueStyle={{
-                                            color: statusColor[audioData?.status || 'pending'] === 'success'
+                                            color: statusColor[audioData?.llmExtraction?.status || 'pending'] === 'success'
                                                 ? '#52c41a'
-                                                : statusColor[audioData?.status || 'pending'] === 'error'
+                                                : statusColor[audioData?.llmExtraction?.status || 'pending'] === 'error'
                                                     ? '#f5222d'
                                                     : '#faad14'
                                         }}
-                                        prefix={audioData?.status === 'accept'
+                                        prefix={audioData?.llmExtraction?.status === 'accept'
                                             ? <CheckCircleOutlined />
-                                            : audioData?.status === 'reject'
+                                            : audioData?.llmExtraction?.status === 'reject'
                                                 ? <CloseCircleOutlined />
                                                 : <InfoCircleOutlined />
                                         }
@@ -317,12 +327,12 @@ const AudioInsights = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="Overall Score"
-                                        value={`${Math.round((audioData?.overallScore || 0) * 100)}%`}
-                                        valueStyle={{ color: getScoreColor(audioData?.overallScore || 0) }}
+                                        value={`${Math.round((audioData?.llmExtraction?.scoring_results?.overall_score || 0) * 100)}%`}
+                                        valueStyle={{ color: getScoreColor(audioData?.llmExtraction?.scoring_results?.overall_score || 0) }}
                                     />
                                     <Progress
-                                        percent={Math.round((audioData?.overallScore || 0) * 100)}
-                                        strokeColor={getScoreColor(audioData?.overallScore || 0)}
+                                        percent={Math.round((audioData?.llmExtraction?.scoring_results?.overall_score || 0) * 100)}
+                                        strokeColor={getScoreColor(audioData?.llmExtraction?.scoring_results?.overall_score || 0)}
                                         showInfo={false}
                                         style={{ marginTop: 8 }}
                                     />
@@ -332,8 +342,8 @@ const AudioInsights = () => {
                     </Col>
 
                     {/* Audio Analysis Card */}
-                    <Col xs={24} md={12}>
-                        <Card title="Audio Quality Analysis" bordered={false}>
+                    <Col xs={24} md={8}>
+                        <Card title="Audio Quality Analysis" bordered={false} ref={(el) => (cardRef.current[1] = el)}>
                             <Row gutter={[16, 16]}>
                                 <Col span={8}>
                                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -343,12 +353,12 @@ const AudioInsights = () => {
                                         </Tooltip>
                                     </div>
                                     <Statistic
-                                        value={audioAnalysis.snr_grade || 'N/A'}
+                                        value={audioData?.audioAnalysis?.snr_grade || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.snr_grade === 'Good') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.snr_grade === 'Good') ? '#52c41a' : '#faad14'
                                         }}
                                     />
-                                    <Text type="secondary">{snrValue.toFixed(1)} dB</Text>
+                                    <Text type="secondary">{audioData?.audioAnalysis?.snr_value?.toFixed(1) || 'N/A'} dB</Text>
                                 </Col>
                                 <Col span={8}>
                                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -358,21 +368,49 @@ const AudioInsights = () => {
                                         </Tooltip>
                                     </div>
                                     <Statistic
-                                        value={audioAnalysis.fluctuation_level || 'N/A'}
+                                        value={audioData?.audioAnalysis?.fluctuation_level || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.fluctuation_level === 'Stable') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.fluctuation_level === 'Stable') ? '#52c41a' : '#faad14'
                                         }}
                                     />
-                                    <Text type="secondary">{fluctuationScore.toFixed(2)}</Text>
+                                    <Text type="secondary">{audioData?.audioAnalysis?.fluctuation_score?.toFixed(2) || 'N/A'}</Text>
                                 </Col>
                                 <Col span={8}>
                                     <Statistic
                                         title="Overall Quality"
-                                        value={audioAnalysis.overall_quality || 'N/A'}
+                                        value={audioData?.audioAnalysis?.overall_quality || 'N/A'}
                                         valueStyle={{
-                                            color: (audioAnalysis.overall_quality === 'Good') ? '#52c41a' : '#faad14'
+                                            color: (audioData?.audioAnalysis?.overall_quality === 'Good') ? '#52c41a' : '#faad14'
                                         }}
                                     />
+                                </Col>
+                            </Row>
+                        </Card>
+                    </Col>
+
+                    {/* Talk Time Statistics Card - Improved Styling */}
+                    <Col xs={24} md={8}>
+                        <Card title="Talk Time Analysis" bordered={false} ref={(el) => (cardRef.current[2] = el)}>
+                            <Row gutter={[16, 16]} align="middle">
+                                <Col span={12}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                                        <Text strong style={{ marginTop: '8px' }}>Agent</Text>
+                                        <Statistic
+                                            value={`${agentTalkTime.toFixed(2)}s`}
+                                            valueStyle={{ fontSize: '1.5em', color: '#262626' }}
+                                        />
+                                    </div>
+                                </Col>
+                                <Col span={12}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: '#52c41a' }} />
+                                        <Text strong style={{ marginTop: '8px' }}>Reference</Text>
+                                        <Statistic
+                                            value={`${referenceTalkTime.toFixed(2)}s`}
+                                            valueStyle={{ fontSize: '1.5em', color: '#262626' }}
+                                        />
+                                    </div>
                                 </Col>
                             </Row>
                         </Card>

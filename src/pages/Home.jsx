@@ -1,166 +1,314 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, List, Button } from 'antd';
-import { 
-  FileOutlined, 
-  SoundOutlined, 
-  ExclamationCircleOutlined,
-  CheckCircleOutlined,UploadOutlined,DashboardOutlined
+import React, { useState, useEffect } from 'react';
+import {
+  Typography,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Spin,
+  Alert,
+  message,
+  Progress,
+  Tag
+} from 'antd';
+import {
+  BarChartOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DashboardOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const { Title, Text } = Typography;
 
 const Home = () => {
-  const [stats, setStats] = useState({
-    totalDocuments: 0,
-    totalAudio: 0,
-    flaggedDocuments: 0,
-    flaggedAudio: 0
-  });
-  
-  const [recentActivity, setRecentActivity] = useState([]);
-  const navigate = useNavigate();
-  
+  const { agent } = useAuth();
+  const [analysisData, setAnalysisData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const agentId = agent?.agentId;
+
   useEffect(() => {
-    // Fetch stats and recent activity from your API
-    // This is a placeholder - replace with actual API calls
-    const fetchDashboardData = async () => {
+    const fetchAnalysisData = async () => {
+      if (!agentId) {
+        setError('No Agent ID provided');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        // const response = await fetch('/api/dashboard');
-        // const data = await response.json();
-        
-        // Placeholder data
-        setStats({
-          totalDocuments: 156,
-          totalAudio: 87,
-          flaggedDocuments: 23,
-          flaggedAudio: 12
+        setIsLoading(true);
+        const response = await axios.get(`http://localhost:8080/agents/${agentId}/analysis`, {
+          timeout: 10000,
+          headers: {
+            'Accept': 'application/json',
+          }
         });
-        
-        setRecentActivity([
-          { id: 1, type: 'document', name: 'Aadhar_User123.pdf', status: 'flagged', timestamp: '2025-03-18T10:30:00' },
-          { id: 2, type: 'audio', name: 'Call_User456.mp3', status: 'verified', timestamp: '2025-03-18T09:45:00' },
-          { id: 3, type: 'document', name: 'PAN_User789.pdf', status: 'verified', timestamp: '2025-03-17T16:20:00' },
-          { id: 4, type: 'audio', name: 'Call_User123.mp3', status: 'flagged', timestamp: '2025-03-17T14:15:00' },
-          { id: 5, type: 'document', name: 'Aadhar_User456.pdf', status: 'verified', timestamp: '2025-03-17T11:30:00' },
-        ]);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+
+        setAnalysisData(response.data);
+        setIsLoading(false);
+        setError(null);
+      } catch (err) {
+        console.error('Fetch error details:', err);
+        const errorMessage = err.response
+          ? `Server Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+          : 'Network error. Please check your connection.';
+
+        setError(errorMessage);
+        setIsLoading(false);
+        message.error('Failed to load dashboard data');
       }
     };
-    
-    fetchDashboardData();
-  }, []);
-  
-  const handleViewDetails = (item) => {
-    if (item.type === 'document') {
-      navigate(`/document/${item.id}`);
-    } else {
-      navigate(`/audio/${item.id}`);
+
+    if (agentId) {
+      fetchAnalysisData();
+      const intervalId = setInterval(fetchAnalysisData, 30000);
+      return () => clearInterval(intervalId);
     }
-  };
-  
-  return (
-    <div>
-      <Title level={2}>Dashboard</Title>
-      
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic 
-              title="Total Documents" 
-              value={stats.totalDocuments} 
-              prefix={<FileOutlined />} 
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic 
-              title="Total Audio Calls" 
-              value={stats.totalAudio} 
-              prefix={<SoundOutlined />} 
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic 
-              title="Flagged Documents" 
-              value={stats.flaggedDocuments} 
-              valueStyle={{ color: '#cf1322' }}
-              prefix={<ExclamationCircleOutlined />} 
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic 
-              title="Flagged Audio Calls" 
-              value={stats.flaggedAudio} 
-              valueStyle={{ color: '#cf1322' }}
-              prefix={<ExclamationCircleOutlined />} 
-            />
-          </Card>
-        </Col>
-      </Row>
-      
-      <Card style={{ marginTop: 16 }}>
-        <Title level={4}>Recent Activity</Title>
-        <List
-          itemLayout="horizontal"
-          dataSource={recentActivity}
-          renderItem={(item) => (
-            <List.Item
-              actions={[
-                <Button type="link" onClick={() => handleViewDetails(item)}>
-                  View Details
-                </Button>
-              ]}
-            >
-              <List.Item.Meta
-                avatar={item.type === 'document' ? <FileOutlined /> : <SoundOutlined />}
-                title={item.name}
-                description={
-                  <>
-                    <Text type={item.status === 'flagged' ? 'danger' : 'success'}>
-                      {item.status === 'flagged' ? 
-                        <ExclamationCircleOutlined style={{ marginRight: 8 }} /> : 
-                        <CheckCircleOutlined style={{ marginRight: 8 }} />
-                      }
-                      {item.status === 'flagged' ? 'Potential fraud detected' : 'Verified'}
-                    </Text>
-                    <br />
-                    <Text type="secondary">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </Text>
-                  </>
-                }
-              />
-            </List.Item>
-          )}
+  }, [agentId]);
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+      }}>
+        <Spin size="large" tip="Loading dashboard..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: '24px',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        minHeight: '100vh'
+      }}>
+        <Alert
+          message="Dashboard Loading Error"
+          description={error}
+          type="error"
+          showIcon
+          closable
         />
+      </div>
+    );
+  }
+
+  const renderStatCard = (icon, title, data, acceptedKey, rejectedKey) => {
+    const total = title === 'Aadhaar'
+      ? data.totalAadhars
+      : data.totalPans || 0;
+    const accepted = data[acceptedKey] || 0;
+    const rejected = data[rejectedKey] || 0;
+    const acceptanceRate = total > 0 ? (accepted / total * 100).toFixed(1) : 0;
+
+    return (
+      <Card
+        hoverable
+        style={{
+          borderRadius: '12px',
+          boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+          background: 'linear-gradient(145deg, #f0f5fc, #e6eaf0)',
+          transition: 'transform 0.3s ease',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.transform = 'scale(1.025)';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {React.cloneElement(icon, {
+              style: {
+                fontSize: '32px',
+                color: title === 'Aadhaar' ? '#1890ff' : '#52c41a',
+                marginRight: '12px'
+              }
+            })}
+            <Title level={4} style={{ margin: 0, color: '#333' }}>
+              {title} Verification
+            </Title>
+          </div>
+          <Progress
+            type="circle"
+            percent={acceptanceRate}
+            width={80}
+            status={acceptanceRate >= 90 ? 'success' : 'normal'}
+            strokeColor={{
+              '0%': '#108ee9',
+              '100%': '#87d068',
+            }}
+          />
+        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="Total"
+              value={total}
+              valueStyle={{ color: '#333', fontWeight: 'bold' }}
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="Accepted"
+              value={accepted}
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="Rejected"
+              value={rejected}
+              prefix={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Col>
+        </Row>
       </Card>
-      
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} sm={12}>
-          <Card>
-            <Title level={4}>Quick Actions</Title>
-            <Button 
-              type="primary" 
-              icon={<UploadOutlined />} 
-              onClick={() => navigate('/upload')}
-              style={{ marginRight: 16 }}
-            >
-              Upload New Document
-            </Button>
-            <Button 
-              icon={<DashboardOutlined />} 
-              onClick={() => navigate('/insights')}
-            >
-              View Insights
-            </Button>
+    );
+  };
+
+  return (
+    <div style={{
+      padding: '24px',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      minHeight: '100vh'
+    }}>
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Card
+            style={{
+              borderRadius: '12px',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+              background: 'white'
+            }}
+            title={
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <DashboardOutlined style={{ fontSize: '24px', marginRight: '12px', color: '#1890ff' }} />
+                <Title level={3} style={{ margin: 0, color: '#333' }}>
+                  Agent Performance Dashboard
+                </Title>
+                <Tag
+                  color="processing"
+                  style={{
+                    marginLeft: '12px',
+                    borderRadius: '6px',
+                    fontSize: '12px'
+                  }}
+                >
+                  Real-time Analytics
+                </Tag>
+              </div>
+            }
+            extra={
+              <Text type="secondary">
+                Last Updated: {new Date().toLocaleString()}
+              </Text>
+            }
+          >
+            <Row gutter={16}>
+              <Col span={12}>
+                <Card
+                  type="inner"
+                  title={
+                    <>
+                      <ClockCircleOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                      Talk Time Metrics
+                    </>
+                  }
+                >
+                  <Row>
+                    <Col span={12}>
+                      <Statistic
+                        title="Avg Agent Talk Time"
+                        value={analysisData?.averageAgentTalkTime?.toFixed(2) || 0}
+                        suffix="s"
+                        valueStyle={{ color: '#1890ff' }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Avg Reference Talk Time"
+                        value={analysisData?.averageReferenceTalkTime?.toFixed(2) || 0}
+                        suffix="s"
+                        valueStyle={{ color: '#52c41a' }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card
+                  type="inner"
+                  title={
+                    <>
+                      <BarChartOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+                      Reference Calls Overview
+                    </>
+                  }
+                >
+                  <Row>
+                    <Col span={8}>
+                      <Statistic
+                        title="Total Calls"
+                        value={analysisData?.totalReferenceCalls || 0}
+                      />
+                    </Col>
+                    <Col span={8}>
+                      <Statistic
+                        title="Accepted"
+                        value={analysisData?.acceptedReferenceCalls || 0}
+                        valueStyle={{ color: '#3f8600' }}
+                      />
+                    </Col>
+                    <Col span={8}>
+                      <Statistic
+                        title="Rejected"
+                        value={analysisData?.rejectedReferenceCalls || 0}
+                        valueStyle={{ color: '#cf1322' }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+            </Row>
           </Card>
+        </Col>
+
+        <Col span={12}>
+          {renderStatCard(
+            <FileTextOutlined />,
+            'Aadhaar',
+            analysisData,
+            'acceptedAadhars',
+            'rejectedAadhars'
+          )}
+        </Col>
+
+        <Col span={12}>
+          {renderStatCard(
+            <FileTextOutlined />,
+            'PAN',
+            analysisData,
+            'acceptedPans',
+            'rejectedPans'
+          )}
         </Col>
       </Row>
     </div>
