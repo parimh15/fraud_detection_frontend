@@ -5,15 +5,14 @@ import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import LeadsPage from './pages/LeadsPage';
 import OverallInsights from './pages/OverallInsights';
-//import DocumentInsight from './pages/DocumentInsights'; // Remove this line
-import PanInsights from './pages/PanInsights'; // Add this line
-import AadhaarInsights from './pages/AadhaarInsights'; // Add this line
+import PanInsights from './pages/PanInsights'; 
+import AadhaarInsights from './pages/AadhaarInsights'; 
 import AudioInsight from './pages/AudioInsights';
 import UploadPage from './pages/UploadPage';
 import CustomInsightPage from './pages/CustomInsightPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import { AuthProvider, useAuth } from './context/AuthContext'; // Import AuthProvider
+import { AuthProvider, useAuth } from './context/AuthContext';
 import FileRecordsDashboard from './pages/FileRecordsDashBoard';
 
 function App() {
